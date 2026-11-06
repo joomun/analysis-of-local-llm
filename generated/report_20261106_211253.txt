@@ -1,0 +1,16 @@
+﻿BIONIC LOG REPORT
+Generated: 2026-11-06 21:12:53
+
+MODEL PERFORMANCE SUMMARY
+=============================================
+Bonsai-27B-Q1_0.gguf: 614.794 tokens/sec (67 samples)
+gpt-oss-20b-MXFP4.gguf: 2352.795 tokens/sec (419 samples)
+Qwen3.8-27B-Q4_K_M.gguf: 367.866 tokens/sec (71 samples)
+Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf: 244.703 tokens/sec (364 samples)
+
+=============================================
+Overall Average: 1240.177 tokens/sec
+
+Total log files: 2
+Models detected: 4
+Total performance samples: 921
