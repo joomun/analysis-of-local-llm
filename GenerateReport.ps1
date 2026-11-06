@@ -91,7 +91,11 @@ foreach ($model in $avgTokenData.Keys | Sort-Object) {
         borderWidth     = 1
     }
 }
-$datasetsJS = ($datasets | ConvertTo-Json -Depth 3).Trim('[', ']')
+$datasetsJS = if ($datasets.Count -gt 0) {
+    ($datasets | ConvertTo-Json -Depth 3).Trim('[', ']')
+} else {
+    "[]"
+}
 $html += @"
 <h2>Performance Bar Chart</h2>
 <div class="chart-container"><canvas id="perfChart" width="800" height="400"></canvas></div>
@@ -103,7 +107,7 @@ new Chart(ctx, {
   options: { scales:{ y:{ beginAtZero:true } } }
 });
 </script>
-"@
+"@ 
 
 $html += '</body></html>'
 
