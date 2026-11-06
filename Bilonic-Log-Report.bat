@@ -3,53 +3,54 @@ rem -------------------------------------------------------------
 rem  Bionic Log Analyzer & Reporter – batch launcher
 rem -------------------------------------------------------------
 
-setlocal EnableDelayedExpansion
-
 echo.
 echo ============================================================
-echo    Bionic Log Analyzer & Performance Reporter
+echo    Bionic Log Analyzer & Reporter
 echo ============================================================
 echo.
 
-rem ---- Determine default log root
-echo Detecting LM Studio logs directory...
-if exist "%~dp0sample log" (
+rem ---- Set the log root directory 
+set "LOGROOT=%USERPROFILE%\.lmstudio\apps\bionic\server-logs"
+
+echo Checking for LM Studio logs at: %LOGROOT%
+if not exist "%LOGROOT%" (
+    echo.
+    echo WARNING: Log directory not found!
+    echo Creating sample log directory instead...
     set "LOGROOT=%~dp0sample log"
-    echo Using sample logs from: %LOGROOT%
-) else (
-    set "LOGROOT=%USERPROFILE%\.lmstudio\apps\bionic\server-logs"
-    echo Using LM Studio logs from: %LOGROOT%
+    if not exist "%LOGROOT%" (
+        echo ERROR: Neither LM Studio logs nor sample logs directory found.
+        echo Please ensure your LM Studio installation is properly set up.
+        pause
+        exit /b 1
+    )
 )
 
 echo.
 echo Available log directories:
-for /d %%D in ("%LOGROOT%\*") do echo   %%~nxD
-
+dir /ad "%LOGROOT%" 2>nul | findstr /R "^[0-9]" || echo   (no subdirectories found)
 echo.
-echo If you want to use a custom path, enter it now (or press Enter to process all):
-set /p "CUSTOM_PATH=Custom directory (optional): "
 
-if "!CUSTOM_PATH!"=="" (
+set /p "SELECTED_DATE=Choose a folder (or press ENTER to process all): "
+
+if "%SELECTED_DATE%"=="" (
     set "TARGET_DIR=%LOGROOT%"
-    echo.
-    echo Processing ALL log directories from: %TARGET_DIR%
+    echo Processing ALL logs from: %TARGET_DIR%
 ) else (
-    set "TARGET_DIR=!CUSTOM_PATH!"
-    echo.
-    echo Processing custom directory: %TARGET_DIR%
+    set "TARGET_DIR=%LOGROOT%\%SELECTED_DATE%"
+    echo Processing selected log directory: %TARGET_DIR%
 )
 
 rem ---- Sanity check
 if not exist "%TARGET_DIR%" (
     echo.
     echo ERROR: Folder '%TARGET_DIR%' does not exist.
-    echo Please verify the path and try again.
     pause
     exit /b 1
 )
 
 echo.
-echo Starting analysis...
+echo Starting analysis of logs in: %TARGET_DIR%
 echo.
 
 rem ---- Launch the PowerShell script (passing the target directory)
@@ -57,7 +58,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0GenerateReport.ps1" -L
 
 echo.
 echo Analysis complete! 
-echo HTML report(s) generated in: %~dp0generated
+echo HTML reports generated in: %~dp0generated
 echo.
 
 pause
