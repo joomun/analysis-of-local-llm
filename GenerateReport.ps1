@@ -105,7 +105,7 @@ foreach ($model in $avgTokenData.Keys) {
 }
 Write-Host "📈 Overall average: $overallAvg tokens/sec"
 
-# Build HTML report
+# Build HTML report with proper escaping
 $html = @"
 <!DOCTYPE html>
 <html lang="en">
@@ -138,6 +138,7 @@ $html += "<h2>Overall Average Performance: $overallAvg tokens per second</h2>"
 
 # Bar-chart data (only if we have data)
 if ($avgTokenData.Count -gt 0) {
+    # Prepare chart data  
     $labels = ($avgTokenData.Keys | Sort-Object) -join ','
     $datasets = @()
     
