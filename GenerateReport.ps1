@@ -13,13 +13,10 @@ $logFiles = Get-ChildItem -Path $LogRoot -Filter *.log -Recurse
 if ($logFiles.Count -eq 0) {
     Write-Host "⚠️  No .log files found in the specified path."
     # Create simple text report 
-    $html = @"
-Bionic Log Report – $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
-
-No log files were found or no performance data was parsed.
-"@
-    $outFile = Join-Path $OutputDir ("report_$(Get-Date -Format 'yyyyMMdd_HHmmss').html")
-    Set-Content -Path $outFile -Value $html
+    $reportContent = "Bionic Log Report – $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+    $reportContent += "`nNo log files were found or no performance data was parsed.`n"
+    $outFile = Join-Path $OutputDir ("report_$(Get-Date -Format 'yyyyMMdd_HHmmss').txt")
+    Set-Content -Path $outFile -Value $reportContent
     Write-Host "✅ Report generated at: $outFile"
     exit 0
 }
@@ -96,14 +93,10 @@ foreach ($model in $avgTokenData.Keys) {
 }
 Write-Host "📈 Overall average: $overallAvg tokens/sec"
 
-# Create a simple text-based report instead of complex HTML to avoid escaping issues
-$reportContent = @"
-Bionic Log Report – $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
-
-Model Performance Summary (Tokens per Second):
-============================================
-
-"@
+# Create a simple text-based report
+$reportContent = "Bionic Log Report – $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+$reportContent += "`n`nModel Performance Summary (Tokens per Second):"
+$reportContent += "`n=============================================`n"
 
 foreach ($model in $avgTokenData.Keys | Sort-Object) {
     $avg = $avgTokenData[$model]
