@@ -99,8 +99,10 @@ $reportContent += "`n`nModel Performance Summary (Tokens per Second):"
 $reportContent += "`n=============================================`n"
 
 foreach ($model in $avgTokenData.Keys | Sort-Object) {
-    $avg = $avgTokenData[$model]
-    $reportContent += "$model: $avg tokens/sec`n"
+    # Avoid problematic variable reference syntax  
+    $model_name = $model
+    $avg_value = $avgTokenData[$model]
+    $reportContent += "$model_name: $avg_value tokens/sec`n"
 }
 
 $reportContent += "`nOverall Average Performance: $overallAvg tokens per second`n"
