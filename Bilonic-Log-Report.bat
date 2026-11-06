@@ -5,31 +5,43 @@ rem -------------------------------------------------------------
 
 setlocal EnableDelayedExpansion
 
-rem ---- where the logs live (change if your installation is elsewhere)
-:: Determine default log root
-if exist "%~dp0sample log" ( set "LOGROOT=%~dp0sample log" ) else ( set "LOGROOT=%USERPROFILE%\.lmstudio\apps\bionic\server-logs" )
+rem ---- Determine default log root
+if exist "%~dp0sample log" (
+    set "LOGROOT=%~dp0sample log"
+) else (
+    set "LOGROOT=%USERPROFILE%\.lmstudio\apps\bionic\server-logs"
+)
 
-rem ---- list available folders / ask for one, or press ENTER to scan everything
 echo.
+echo Checking directory: %LOGROOT%
+echo.
+
+rem ---- List available folders / ask for one, or press ENTER to scan everything
 echo Available log directories:
 for /d %%D in ("%LOGROOT%\*") do echo   %%~nxD
 
-set /p "SELECTED_DATE=Choose a folder (or press ENTER to process all): "
+echo.
+echo If you want to use a custom path, enter it now (or press Enter to process all from above):
+set /p "CUSTOM_PATH=Custom directory (optional): "
 
-if "!SELECTED_DATE!"=="" (
+if "!CUSTOM_PATH!"=="" (
     set "TARGET_DIR=%LOGROOT%"
 ) else (
-    set "TARGET_DIR=%LOGROOT%\!SELECTED_DATE!"
+    set "TARGET_DIR=!CUSTOM_PATH!"
 )
 
-rem ---- sanity check
+rem ---- Sanity check
 if not exist "%TARGET_DIR%" (
     echo.
     echo ERROR: Folder '%TARGET_DIR%' does not exist.
     exit /b 1
 )
 
-rem ---- launch the PowerShell script (passing the target directory)
+echo.
+echo Processing logs in: %TARGET_DIR%
+echo.
+
+rem ---- Launch the PowerShell script (passing the target directory)
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0GenerateReport.ps1" -LogRoot "%TARGET_DIR%" -OutputDir "%~dp0generated"
 
 pause
