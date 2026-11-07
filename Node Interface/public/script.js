@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const savedTheme = localStorage.getItem('dashboard-theme');
     if (savedTheme === 'dark') {
         document.body.classList.add('dark-mode');
+        updateThemeButtonText();
     }
 });
 
@@ -155,7 +156,7 @@ function updateChart(models) {
     
     const dataValues = models.map(model => model.tokensPerSec);
     
-    // Create new chart
+    // Create new chart with enhanced styling
     performanceChart = new Chart(ctx, {
         type: 'bar',
         data: {
@@ -165,44 +166,87 @@ function updateChart(models) {
                 data: dataValues,
                 backgroundColor: [
                     '#3498db', '#2ecc71', '#e74c3c', '#f39c12', 
-                    '#9b59b6', '#1abc9c', '#34495e', '#d35400'
+                    '#9b59b6', '#1abc9c', '#34495e', '#d35400',
+                    '#16a085', '#27ae60', '#c0392b', '#e67e22'
                 ],
                 borderColor: [
                     '#2980b9', '#27ae60', '#c0392b', '#d35400',
-                    '#8e44ad', '#16a085', '#2c3e50', '#c0392b'
+                    '#8e44ad', '#16a085', '#2c3e50', '#c0392b',
+                    '#1abc9c', '#2ecc71', '#e74c3c', '#f39c12'
                 ],
-                borderWidth: 1
+                borderWidth: 1,
+                borderRadius: 6,
+                borderSkipped: false,
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: 'Tokens per Second'
-                    }
-                },
-                x: {
-                    title: {
-                        display: true,
-                        text: 'Models'
-                    }
-                }
-            },
             plugins: {
                 legend: {
                     display: false
                 },
                 tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                    borderWidth: 1,
+                    padding: 12,
                     callbacks: {
                         label: function(context) {
-                            return `${context.parsed.y.toFixed(2)} tokens/sec`;
+                            return `${context.dataset.label}: ${context.parsed.y.toFixed(2)} tokens/sec`;
                         }
                     }
+                },
+                title: {
+                    display: true,
+                    text: 'Model Performance Comparison',
+                    font: {
+                        size: 16,
+                        weight: 'bold'
+                    },
+                    color: '#333'
                 }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    },
+                    ticks: {
+                        color: '#666',
+                        font: {
+                            size: 12
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Tokens per Second',
+                        color: '#333'
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        color: '#666',
+                        font: {
+                            size: 10
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Models',
+                        color: '#333'
+                    }
+                }
+            },
+            animation: {
+                duration: 1500,
+                easing: 'easeOutQuart'
             }
         }
     });
@@ -251,13 +295,6 @@ function toggleAutoRefresh() {
     }
 }
 
-// Handle window resize for chart
-window.addEventListener('resize', function() {
-    if (performanceChart) {
-        performanceChart.resize();
-    }
-});
-
 // Toggle dark/light theme
 function toggleTheme() {
     document.body.classList.toggle('dark-mode');
@@ -267,9 +304,22 @@ function toggleTheme() {
     localStorage.setItem('dashboard-theme', isDark ? 'dark' : 'light');
     
     // Update button text based on current theme
+    updateThemeButtonText();
+}
+
+// Update theme toggle button text
+function updateThemeButtonText() {
+    const isDark = document.body.classList.contains('dark-mode');
     if (isDark) {
         themeToggle.textContent = '☀️ Light Mode';
     } else {
         themeToggle.textContent = '🌓 Dark Mode';
     }
 }
+
+// Handle window resize for chart
+window.addEventListener('resize', function() {
+    if (performanceChart) {
+        performanceChart.resize();
+    }
+});
