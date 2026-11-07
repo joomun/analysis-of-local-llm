@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local LLM Performance Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 Local LLM Performance Dashboard</h1>
+            <p>Real-time monitoring of your LM Studio models</p>
+        </header>
+
+        <div class="controls">
+            <button id="refreshBtn">🔄 Refresh Data</button>
+            <button id="autoRefreshToggle">⏸️ Auto-refresh (5s)</button>
+            <span id="lastUpdated"></span>
+        </div>
+
+        <div id="loading" class="loading hidden">
+            <p>Generating performance report...</p>
+        </div>
+
+        <div id="error" class="error hidden">
+            <p>Error loading data: <span id="errorMessage"></span></p>
+        </div>
+
+        <div id="dashboard-content" class="dashboard-content">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>📊 Overall Average</h3>
+                    <p id="overallAverage">-</p>
+                </div>
+                <div class="stat-card">
+                    <h3>📁 Total Log Files</h3>
+                    <p id="totalLogFiles">-</p>
+                </div>
+                <div class="stat-card">
+                    <h3>🧠 Models Detected</h3>
+                    <p id="modelsDetected">-</p>
+                </div>
+                <div class="stat-card">
+                    <h3>🔢 Total Samples</h3>
+                    <p id="totalSamples">-</p>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <canvas id="performanceChart"></canvas>
+            </div>
+
+            <div class="models-table">
+                <h2>📈 Model Performance Details</h2>
+                <table id="modelTable">
+                    <thead>
+                        <tr>
+                            <th>Model Name</th>
+                            <th>Tokens/Second</th>
+                            <th>Samples</th>
+                        </tr>
+                    </thead>
+                    <tbody id="modelTableBody">
+                        <!-- Model data will be inserted here -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="report-info">
+                <h2>📄 Recent Report</h2>
+                <p id="reportFile">No report available yet</p>
+                <pre id="reportContent"></pre>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

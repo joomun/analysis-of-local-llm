@@ -1,0 +1,28 @@
+{
+  "name": "llm-performance-dashboard",
+  "version": "1.0.0",
+  "description": "Local web interface for monitoring LM Studio LLM performance metrics",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "fs": "^0.0.1-security",
+    "path": "^0.12.7",
+    "child_process": "^1.0.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "keywords": [
+    "llm",
+    "local-ai",
+    "performance-monitoring",
+    "dashboard",
+    "lmstudio"
+  ],
+  "author": "Local LLM Analyzer",
+  "license": "MIT"
+}
