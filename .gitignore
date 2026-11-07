@@ -52,3 +52,5 @@ __pypackages__/
 
 # Local log analysis tool output
 generated/
+node_modules/
+npm-debug.log

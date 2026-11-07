@@ -6,78 +6,96 @@ const app = express();
 const PORT = 3000;
 
 // Serve static files from 'public' directory
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Middleware to parse JSON bodies
 app.use(express.json());
 
 // Route for the main dashboard page
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    const indexPath = path.join(__dirname, 'public', 'index.html');
+    if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+    } else {
+        res.status(404).send('Dashboard not found');
+    }
 });
 
 // API endpoint to get performance data from logs
 app.get('/api/performance-data', (req, res) => {
-    // Execute the PowerShell script to generate new report
-    const powershellScript = path.join(__dirname, '..', 'GenerateReport.ps1');
-    const logRoot = path.join(process.env.USERPROFILE, '.lmstudio', 'apps', 'bionic', 'server-logs');
-    
-    console.log('Attempting to parse logs from:', logRoot);
-    
-    // Execute PowerShell script using cmd
-    exec(`powershell -ExecutionPolicy Bypass -File "${powershellScript}" -LogRoot "${logRoot}"`, 
-        { cwd: __dirname },
-        (error, stdout, stderr) => {
-            if (error) {
-                console.error('Error executing PowerShell script:', error);
-                return res.status(500).json({ 
-                    error: 'Failed to generate performance report', 
-                    details: stderr 
-                });
-            }
-            
-            // Read the latest generated report
-            const generatedDir = path.join(__dirname, '..', 'generated');
-            fs.readdir(generatedDir, (err, files) => {
-                if (err) {
-                    console.error('Error reading generated directory:', err);
+    try {
+        // Execute the PowerShell script to generate new report
+        const powershellScript = path.join(__dirname, '..', 'GenerateReport.ps1');
+        const logRoot = path.join(process.env.USERPROFILE, '.lmstudio', 'apps', 'bionic', 'server-logs');
+        
+        console.log('Attempting to parse logs from:', logRoot);
+        
+        // Execute PowerShell script using cmd
+        exec(`powershell -ExecutionPolicy Bypass -File "${powershellScript}" -LogRoot "${logRoot}"`, 
+            { cwd: __dirname },
+            (error, stdout, stderr) => {
+                if (error) {
+                    console.error('Error executing PowerShell script:', error);
                     return res.status(500).json({ 
-                        error: 'Failed to read generated reports' 
+                        error: 'Failed to generate performance report', 
+                        details: stderr || error.message
                     });
                 }
                 
-                // Find the most recent txt file
-                const txtFiles = files.filter(file => file.endsWith('.txt'));
-                if (txtFiles.length === 0) {
-                    console.log('No txt report found');
-                    return res.json({ message: 'No performance data available yet' });
-                }
-                
-                const latestFile = txtFiles.reduce((latest, current) => {
-                    const currentPath = path.join(generatedDir, current);
-                    const latestPath = path.join(generatedDir, latest);
-                    return fs.statSync(currentPath).mtime > fs.statSync(latestPath).mtime ? current : latest;
-                });
-                
-                const reportPath = path.join(generatedDir, latestFile);
-                fs.readFile(reportPath, 'utf8', (err, data) => {
+                // Read the latest generated report
+                const generatedDir = path.join(__dirname, '..', 'generated');
+                fs.readdir(generatedDir, (err, files) => {
                     if (err) {
-                        console.error('Error reading report file:', err);
+                        console.error('Error reading generated directory:', err);
                         return res.status(500).json({ 
-                            error: 'Failed to read performance report' 
+                            error: 'Failed to read generated reports' 
                         });
                     }
                     
-                    // Parse the text report into structured data
-                    const parsedData = parseReportText(data);
-                    res.json({
-                        reportFile: latestFile,
-                        timestamp: new Date().toISOString(),
-                        ...parsedData
+                    // Find the most recent txt file
+                    const txtFiles = files.filter(file => file.endsWith('.txt'));
+                    if (txtFiles.length === 0) {
+                        console.log('No txt report found');
+                        return res.json({ message: 'No performance data available yet' });
+                    }
+                    
+                    // Get the most recent file by modification time
+                    const latestFile = txtFiles.reduce((latest, current) => {
+                        try {
+                            const currentPath = path.join(generatedDir, current);
+                            const latestPath = path.join(generatedDir, latest);
+                            return fs.statSync(currentPath).mtime > fs.statSync(latestPath).mtime ? current : latest;
+                        } catch (e) {
+                            return latest;
+                        }
+                    });
+                    
+                    const reportPath = path.join(generatedDir, latestFile);
+                    fs.readFile(reportPath, 'utf8', (err, data) => {
+                        if (err) {
+                            console.error('Error reading report file:', err);
+                            return res.status(500).json({ 
+                                error: 'Failed to read performance report' 
+                            });
+                        }
+                        
+                        // Parse the text report into structured data
+                        const parsedData = parseReportText(data);
+                        res.json({
+                            reportFile: latestFile,
+                            timestamp: new Date().toISOString(),
+                            ...parsedData
+                        });
                     });
                 });
             });
+    } catch (error) {
+        console.error('Unexpected error:', error);
+        return res.status(500).json({ 
+            error: 'Unexpected server error', 
+            details: error.message 
         });
+    }
 });
 
 // Function to parse the text report format into structured data
