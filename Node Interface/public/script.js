@@ -1,6 +1,7 @@
 // DOM Elements
 const refreshBtn = document.getElementById('refreshBtn');
 const autoRefreshToggle = document.getElementById('autoRefreshToggle');
+const themeToggle = document.getElementById('themeToggle');
 const lastUpdatedEl = document.getElementById('lastUpdated');
 const loadingEl = document.getElementById('loading');
 const errorEl = document.getElementById('error');
@@ -22,6 +23,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // Set up event listeners
     refreshBtn.addEventListener('click', fetchData);
     autoRefreshToggle.addEventListener('click', toggleAutoRefresh);
+    themeToggle.addEventListener('click', toggleTheme);
+    
+    // Check for saved theme preference
+    const savedTheme = localStorage.getItem('dashboard-theme');
+    if (savedTheme === 'dark') {
+        document.body.classList.add('dark-mode');
+    }
 });
 
 // Fetch performance data from API
@@ -249,3 +257,19 @@ window.addEventListener('resize', function() {
         performanceChart.resize();
     }
 });
+
+// Toggle dark/light theme
+function toggleTheme() {
+    document.body.classList.toggle('dark-mode');
+    
+    // Save preference to localStorage
+    const isDark = document.body.classList.contains('dark-mode');
+    localStorage.setItem('dashboard-theme', isDark ? 'dark' : 'light');
+    
+    // Update button text based on current theme
+    if (isDark) {
+        themeToggle.textContent = '☀️ Light Mode';
+    } else {
+        themeToggle.textContent = '🌓 Dark Mode';
+    }
+}
