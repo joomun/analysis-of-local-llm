@@ -3,79 +3,176 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Local LLM Performance Dashboard</title>
+    <meta name="theme-color" content="#070a11">
+    <title>Local LLM Performance Monitor</title>
+
+    <!-- Set theme before first paint to avoid a flash -->
+    <script>
+        (function () {
+            try {
+                var saved = localStorage.getItem('dashboard-theme');
+                var theme = (saved === 'light' || saved === 'dark')
+                    ? saved
+                    : (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+                document.documentElement.setAttribute('data-theme', theme);
+            } catch (e) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
+    </script>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>🤖 Local LLM Performance Dashboard</h1>
-            <p>Real-time monitoring of your LM Studio models</p>
-        </header>
-
-        <div class="controls">
-            <button id="refreshBtn">🔄 Refresh Data</button>
-            <button id="autoRefreshToggle">⏸️ Auto-refresh (5s)</button>
-            <button id="themeToggle">🌓 Toggle Theme</button>
-            <span id="lastUpdated"></span>
-        </div>
-
-        <div id="loading" class="loading hidden">
-            <p>Generating performance report...</p>
-        </div>
-
-        <div id="error" class="error hidden">
-            <p>Error loading data: <span id="errorMessage"></span></p>
-        </div>
-
-        <div id="dashboard-content" class="dashboard-content">
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <h3>📊 Overall Average</h3>
-                    <p id="overallAverage">-</p>
+    <main class="shell">
+        <section class="terminal" aria-label="LLM performance monitor">
+            <!-- Terminal chrome -->
+            <header class="terminal-bar">
+                <div class="dots" aria-hidden="true">
+                    <span class="dot red"></span>
+                    <span class="dot yellow"></span>
+                    <span class="dot green"></span>
                 </div>
-                <div class="stat-card">
-                    <h3>📁 Total Log Files</h3>
-                    <p id="totalLogFiles">-</p>
+                <div class="terminal-title">
+                    <span class="path">joomun@portfolio:~$</span> <span class="cmd">llm-monitor</span>
                 </div>
-                <div class="stat-card">
-                    <h3>🧠 Models Detected</h3>
-                    <p id="modelsDetected">-</p>
+                <div class="terminal-status" id="connStatus" role="status">
+                    <span class="status-dot" aria-hidden="true"></span>
+                    <span id="statusText">connecting</span>
                 </div>
-                <div class="stat-card">
-                    <h3>🔢 Total Samples</h3>
-                    <p id="totalSamples">-</p>
+            </header>
+
+            <div class="terminal-body">
+                <!-- Prompt + hero -->
+                <div class="prompt-line" aria-hidden="true">
+                    <span class="prompt-user">visitor@dashboard</span>
+                    <span class="prompt-sep">:~$</span>
+                    <span class="prompt-cmd">analyze --models --tokens</span>
+                    <span class="cursor"></span>
+                </div>
+                <div class="hero">
+                    <h1>Local LLM Performance</h1>
+                    <p class="subtitle">Real-time token throughput for the models running on your LM Studio instance, parsed straight from the server logs.</p>
+                </div>
+
+                <!-- Controls -->
+                <div class="controls">
+                    <button id="refreshBtn" class="btn btn-primary" type="button">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                            <path d="M21 3v6h-6" />
+                        </svg>
+                        <span>Refresh</span>
+                    </button>
+
+                    <button id="autoRefreshToggle" class="btn" type="button" aria-pressed="false">
+                        <span class="led" aria-hidden="true"></span>
+                        <span id="autoRefreshLabel">Auto-refresh: off</span>
+                    </button>
+
+                    <button id="themeToggle" class="btn" type="button">
+                        <svg class="icon icon-moon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                        </svg>
+                        <svg class="icon icon-sun" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:none">
+                            <circle cx="12" cy="12" r="4" />
+                            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+                        </svg>
+                        <span id="themeLabel">Theme</span>
+                    </button>
+
+                    <span id="lastUpdated" class="last-updated" aria-live="polite">—</span>
+                </div>
+
+                <!-- Status banners -->
+                <div id="loading" class="banner banner-loading hidden" role="status">
+                    <span class="spinner" aria-hidden="true"></span>
+                    <span>Generating performance report…</span>
+                </div>
+                <div id="error" class="banner banner-error hidden" role="alert">
+                    <span id="errorMessage"></span>
+                </div>
+
+                <!-- Dashboard content -->
+                <div id="dashboard-content" class="content">
+                    <!-- Stats -->
+                    <div class="stats-grid">
+                        <div class="stat-card stat-card--primary">
+                            <div class="stat-label">Overall average</div>
+                            <div class="stat-value"><span id="overallAverage">–</span><span class="stat-unit">tok/s</span></div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Log files</div>
+                            <div class="stat-value"><span id="totalLogFiles">–</span></div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Models detected</div>
+                            <div class="stat-value"><span id="modelsDetected">–</span></div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Total samples</div>
+                            <div class="stat-value"><span id="totalSamples">–</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Chart -->
+                    <div class="panel">
+                        <div class="panel-head">
+                            <h2>Model throughput</h2>
+                            <span class="panel-hint">tokens per second</span>
+                        </div>
+                        <div class="chart-wrap">
+                            <canvas id="performanceChart" role="img" aria-label="Bar chart of tokens per second per model"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Table -->
+                    <div class="panel">
+                        <div class="panel-head">
+                            <h2>Model breakdown</h2>
+                            <span class="panel-hint" id="modelCount">0 models</span>
+                        </div>
+                        <div class="table-scroll">
+                            <table id="modelTable">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Model</th>
+                                        <th scope="col" class="num">Tokens / sec</th>
+                                        <th scope="col" class="num">Samples</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="modelTableBody">
+                                    <tr><td colspan="3">Waiting for data…</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Report -->
+                    <div class="panel">
+                        <div class="panel-head">
+                            <h2>Recent report</h2>
+                            <span class="panel-hint" id="reportFile">no report yet</span>
+                        </div>
+                        <pre id="reportContent" class="report-pre">No report available yet. Run a refresh to parse the latest logs.</pre>
+                    </div>
                 </div>
             </div>
 
-            <div class="chart-container">
-                <canvas id="performanceChart"></canvas>
-            </div>
-
-            <div class="models-table">
-                <h2>📈 Model Performance Details</h2>
-                <table id="modelTable">
-                    <thead>
-                        <tr>
-                            <th>Model Name</th>
-                            <th>Tokens/Second</th>
-                            <th>Samples</th>
-                        </tr>
-                    </thead>
-                    <tbody id="modelTableBody">
-                        <!-- Model data will be inserted here -->
-                    </tbody>
-                </table>
-            </div>
-
-            <div class="report-info">
-                <h2>📄 Recent Report</h2>
-                <p id="reportFile">No report available yet</p>
-                <pre id="reportContent"></pre>
-            </div>
-        </div>
-    </div>
+            <!-- Footer -->
+            <footer class="terminal-foot">
+                <span>LLM Performance Monitor</span>
+                <span class="sep">·</span>
+                <span>parsing local LM Studio logs</span>
+            </footer>
+        </section>
+    </main>
 
     <script src="script.js"></script>
 </body>

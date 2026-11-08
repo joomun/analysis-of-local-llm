@@ -83,6 +83,7 @@ app.get('/api/performance-data', (req, res) => {
                         const parsedData = parseReportText(data);
                         res.json({
                             reportFile: latestFile,
+                            reportContent: data,
                             timestamp: new Date().toISOString(),
                             ...parsedData
                         });
