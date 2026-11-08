@@ -1,53 +1,54 @@
 # Node.js Web Interface for Local LLM Analysis
 
-This subfolder contains the code for a local web interface that will provide real-time visualization of your LM Studio local LLM performance data.
+A local web dashboard that visualizes performance data for your LM Studio (Bionic) models in real time. It reads the same server logs as the PowerShell parser in the repo root and turns them into charts, a per-model breakdown, and the latest parsed report.
 
 ## Current Status
-- [x] Folder structure created
-- [ ] Basic Express server setup 
-- [ ] Log file parsing integration
-- [ ] Real-time dashboard UI
-- [ ] Live monitoring capabilities
+- [x] Express server + static asset serving
+- [x] `/api/performance-data` endpoint (runs the PowerShell parser, returns structured JSON + raw report text)
+- [x] Log file parsing integration
+- [x] Real-time dashboard UI (stats, chart, model table, recent report)
+- [x] Light / dark theme with persistence (no flash on load)
+- [x] Auto-refresh (optional 5s polling) + connection status indicator
 
 ## Planned Features
-1. **Real-time Dashboard** - Visualize current performance metrics
-2. **Live Monitoring** - Continuous log analysis and updates
-3. **Interactive Charts** - Using Chart.js for performance visualization  
-4. **Multiple Model Comparison** - Side-by-side model performance views
-5. **Historical Data Storage** - Store performance trends over time
+- [ ] Historical data storage — persist metrics over time for trend charts
+- [ ] Token/sec **trend** line chart alongside the per-model bar chart
+- [ ] Multiple model comparison — side-by-side selection
+- [ ] Configurable log root + refresh interval from the UI
 
 ## Getting Started
-1. Navigate to this folder
-2. Run `npm install` to install dependencies
-3. Start the server with `node server.js`
+```bash
+npm install
+npm start          # or: npm run dev (nodemon)
+```
+Open <http://localhost:3000>.
+
+> The server calls `../GenerateReport.ps1`, so it expects to run from this
+> folder inside the repository.
 
 ## Directory Structure
 ```
 Node Interface/
-├── server.js           # Main Express server
+├── server.js           # Express server + /api/performance-data
 ├── package.json        # Node.js dependencies
-├── public/             # Static files (HTML, CSS, JS)
-│   ├── index.html      # Dashboard homepage  
-│   ├── style.css       # Styling
-│   └── script.js       # Frontend JavaScript
+├── public/
+│   ├── index.html      # Dashboard markup (terminal window layout)
+│   ├── style.css       # Design tokens + light/dark themes
+│   └── script.js       # Fetch, Chart.js, table, theme + auto-refresh
 └── README.md           # This file
 ```
 
-## Current Implementation Plan
+## How It Works
+1. The browser calls `GET /api/performance-data`.
+2. `server.js` runs the PowerShell parser against the LM Studio server logs,
+   reads the most recent `generated/*.txt` report, and parses it into
+   structured data (models, overall average, stats, raw report text).
+3. The dashboard renders the stats cards, a Chart.js throughput bar chart, a
+   sortable-by-value model table, and the recent report panel.
 
-### Phase 1: Basic Server Setup
-- Create Express server to serve static files 
-- Set up routes for log data access
-- Integrate with existing PowerShell parsing logic
-
-### Phase 2: Live Data Processing  
-- Monitor log directories for new entries
-- Parse performance metrics in real-time
-- Update dashboard without page refresh
-
-### Phase 3: Visualization Features
-- Implement charts for token-per-second trends
-- Add model comparison capabilities
-- Create responsive dashboard layout
-
-This will eventually evolve into a full local web application that provides continuous monitoring of your LM Studio models.
+## Design
+The visual language is adapted from the JoomunOS terminal aesthetic
+(noorpersonalspace.africa): deep-navy base with radial teal/periwinkle glows,
+glass panels, JetBrains Mono + Space Grotesk + Outfit type, soft glow, smooth
+easing, and full light/dark theming. The chart palette is read from CSS
+variables so it re-themes live.
