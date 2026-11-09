@@ -23,6 +23,7 @@ const {
     getPerformanceData,
     findActiveLogFile,
     readNewLines,
+    parseLiveLines,
     readTailSamples,
 } = require('./logParser');
 
@@ -92,7 +93,12 @@ app.get('/api/live', (req, res) => {
         // keep only the recent window
         history = history.filter((s) => recentWithin(s, LIVE_HISTORY_MS));
     }
-    send('init', { file: activeFile, history, now: Date.now() });
+    send('init', {
+        file: activeFile,
+        history,
+        model: history.length ? history[history.length - 1].model : null,
+        now: Date.now(),
+    });
 
     const poll = setInterval(() => {
         // Detect log rotation (a newer file became the active one).
@@ -117,7 +123,9 @@ app.get('/api/live', (req, res) => {
         offset = chunk.nextOffset;
         if (!chunk.lines.length) return;
 
-        const samples = parseLiveLines(chunk.lines);
+        const { samples, model, events } = parseLiveLines(chunk.lines);
+        if (model) send('model', { model, at: new Date().toISOString() });
+        if (events.length) send('events', { events });
         if (samples.length) for (const s of samples) send('sample', s);
     }, LIVE_POLL_MS);
 
@@ -130,38 +138,6 @@ app.get('/api/live', (req, res) => {
         clearInterval(keepalive);
     });
 });
-
-// Parse raw log lines into live samples (local helper, shares logParser regexes).
-const MODEL_RE = /loading model\s+'([^']+?)'/;
-const TPS_RE = /([0-9]+(?:\.[0-9]+)?)\s+tokens per second/;
-const TIMESTAMP_RE = /^\[(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})\]/;
-
-function leafName(p) {
-    return String(p || '').split(/[\\/]/).filter(Boolean).pop() || p;
-}
-
-function parseLiveLines(lines) {
-    const out = [];
-    let currentModel = null;
-    // A print_timing block spans several lines; the per-batch "eval time" line
-    // carries no wall-clock prefix, so carry the last seen timestamp forward.
-    let lastTs = null;
-    for (const line of lines) {
-        const tsMatch = line.match(TIMESTAMP_RE);
-        if (tsMatch) lastTs = `${tsMatch[1]} ${tsMatch[2]}`;
-        const mMatch = line.match(MODEL_RE);
-        if (mMatch) { currentModel = leafName(mMatch[1]); continue; }
-        const tMatch = line.match(TPS_RE);
-        if (tMatch && currentModel) {
-            out.push({
-                ts: lastTs,
-                tps: parseFloat(tMatch[1]),
-                model: currentModel,
-            });
-        }
-    }
-    return out;
-}
 
 function recentWithin(sample, windowMs) {
     if (!sample.ts) return true;

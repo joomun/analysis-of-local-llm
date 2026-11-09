@@ -26,7 +26,8 @@ const liveToggleBtn     = document.getElementById('liveToggle');
 const liveToggleLabel   = document.getElementById('liveToggleLabel');
 
 // --- State ----------------------------------------------------------------
-let performanceChart = null;
+let genChart = null;
+let promptChart = null;
 let autoRefreshInterval = null;
 let isAutoRefreshing = false;
 let lastModels = [];
@@ -88,14 +89,26 @@ function updateDashboard(data) {
 
     lastModels = Array.isArray(data.models) ? data.models : [];
     const stats = data.stats || {};
+    const overall = data.overall || {};
+    const health = data.health || {};
 
-    document.getElementById('overallAverage').textContent =
-        (data.overallAverage !== null && data.overallAverage !== undefined)
-            ? Number(data.overallAverage).toFixed(2)
-            : 'N/A';
-    document.getElementById('totalLogFiles').textContent  = stats.totalLogFiles   ?? '0';
-    document.getElementById('modelsDetected').textContent = stats.modelsDetected  ?? '0';
-    document.getElementById('totalSamples').textContent   = stats.totalSamples    ?? '0';
+    const setNum = (id, value) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.textContent = (value === null || value === undefined) ? 'N/A' : Number(value).toFixed(2);
+    };
+    setNum('overallGen', overall.genTps);
+    setNum('overallPrompt', overall.promptTps);
+
+    const setText = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = (value === null || value === undefined) ? '0' : value;
+    };
+    setText('totalTasks', stats.totalTasks);
+    setText('totalGenTokens', stats.totalGenTokens);
+    setText('modelsDetected', stats.modelsDetected);
+    setText('warnCount', health.warnings);
+    setText('errCount', health.errors);
 
     // Data-source summary
     const scope = data.scope === 'all' || !data.scope ? 'all dates' : data.scope;
@@ -119,8 +132,13 @@ function updateDashboard(data) {
         `${models.length} model${models.length === 1 ? '' : 's'}`;
     updateModelTable(models);
 
-    // Bar chart
-    updateChart(models);
+    // Bar charts (generation + prompt)
+    genChart = updateBarChart('genChart', models, 'genTps', genChart);
+    promptChart = updateBarChart('promptChart', models, 'promptTps', promptChart);
+
+    // Sessions + health
+    updateSessionTable(Array.isArray(data.sessions) ? data.sessions : []);
+    updateEvents(health.recent || [], health.warnings || 0, health.errors || 0);
 }
 
 function updateSourceFiles(files) {
@@ -145,11 +163,16 @@ function updateSourceFiles(files) {
         name.title = f.name;
         const count = document.createElement('span');
         count.className = 'file-count';
-        count.textContent = `${f.samples ?? 0} sample${(f.samples ?? 0) === 1 ? '' : 's'}`;
+        const n = f.tasks ?? 0;
+        count.textContent = `${n} task${n === 1 ? '' : 's'}`;
         li.append(name, count);
         fragment.appendChild(li);
     });
     list.appendChild(fragment);
+}
+
+function fmt(v, digits = 2, suffix = '') {
+    return (v === null || v === undefined) ? '—' : Number(v).toFixed(digits) + suffix;
 }
 
 function updateModelTable(models) {
@@ -157,36 +180,159 @@ function updateModelTable(models) {
     tbody.innerHTML = '';
 
     if (!models || models.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="3">No model data available</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8">No model data available</td></tr>';
         return;
     }
 
-    const sorted = [...models].sort((a, b) => b.tokensPerSec - a.tokensPerSec);
+    const sorted = [...models].sort((a, b) => (b.genTps ?? 0) - (a.genTps ?? 0));
     const fragment = document.createDocumentFragment();
 
-    sorted.forEach((model) => {
+    sorted.forEach((m) => {
         const row = document.createElement('tr');
 
         const nameCell = document.createElement('td');
         const nameSpan = document.createElement('span');
         nameSpan.className = 'model-name';
-        nameSpan.textContent = model.name;
-        nameSpan.title = model.name;
+        nameSpan.textContent = m.name;
+        nameSpan.title = m.name;
         nameCell.appendChild(nameSpan);
 
-        const tpsCell = document.createElement('td');
-        tpsCell.className = 'num tps';
-        tpsCell.textContent = Number(model.tokensPerSec).toFixed(2);
+        const cells = [
+            fmt(m.genTps),
+            fmt(m.promptTps),
+            String(m.tasks ?? 0),
+            m.genTokens ? m.genTokens.toLocaleString() : '—',
+            m.draft ? `${(m.draft.acceptance * 100).toFixed(0)}%` : '—',
+            m.avgLoadSeconds !== null ? `${m.avgLoadSeconds}s` : '—',
+        ];
+        cells.forEach((text) => {
+            const td = document.createElement('td');
+            td.className = 'num';
+            td.textContent = text;
+            row.appendChild(td);
+        });
 
-        const sampleCell = document.createElement('td');
-        sampleCell.className = 'num';
-        sampleCell.textContent = model.sampleCount;
+        const visionCell = document.createElement('td');
+        if (m.vision) {
+            const badge = document.createElement('span');
+            badge.className = 'badge badge-vision';
+            badge.textContent = 'vision';
+            badge.title = 'Multimodal projection (mmproj) loaded';
+            visionCell.appendChild(badge);
+        } else {
+            visionCell.textContent = '—';
+        }
+        row.appendChild(visionCell);
 
-        row.append(nameCell, tpsCell, sampleCell);
         fragment.appendChild(row);
     });
 
     tbody.appendChild(fragment);
+}
+
+function updateSessionTable(sessions) {
+    const tbody = document.getElementById('sessionTableBody');
+    const countEl = document.getElementById('sessionCount');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (countEl) countEl.textContent = `${sessions.length} session${sessions.length === 1 ? '' : 's'}`;
+    if (!sessions.length) {
+        tbody.innerHTML = '<tr><td colspan="8">No sessions found for this scope</td></tr>';
+        return;
+    }
+
+    // Newest first — the most recent session is usually what you care about.
+    const sorted = [...sessions].reverse();
+    const fragment = document.createDocumentFragment();
+
+    sorted.forEach((s) => {
+        const row = document.createElement('tr');
+
+        const startedCell = document.createElement('td');
+        startedCell.className = 'mono';
+        startedCell.textContent = s.startTs ? String(s.startTs).slice(5) : '—';
+
+        const nameCell = document.createElement('td');
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'model-name';
+        nameSpan.textContent = s.model || '—';
+        nameSpan.title = s.model || '';
+        nameCell.appendChild(nameSpan);
+
+        const cells = [
+            s.loadSeconds !== null ? `${s.loadSeconds}s` : '—',
+            s.ctx ? s.ctx.toLocaleString() : '—',
+            s.slots ?? '—',
+            s.threads ?? '—',
+            s.port ?? '—',
+        ];
+        cells.forEach((text) => {
+            const td = document.createElement('td');
+            td.className = 'num';
+            td.textContent = String(text);
+            row.appendChild(td);
+        });
+
+        const visionCell = document.createElement('td');
+        if (s.vision) {
+            const badge = document.createElement('span');
+            badge.className = 'badge badge-vision';
+            badge.textContent = 'vision';
+            visionCell.appendChild(badge);
+        } else {
+            visionCell.textContent = '—';
+        }
+        row.appendChild(visionCell);
+
+        fragment.appendChild(row);
+    });
+
+    tbody.appendChild(fragment);
+}
+
+function updateEvents(events, warnCount, errCount) {
+    const list = document.getElementById('eventsList');
+    const hint = document.getElementById('healthHint');
+    if (!list) return;
+
+    if (hint) {
+        hint.textContent = events.length
+            ? `${warnCount} warning${warnCount === 1 ? '' : 's'} · ${errCount} error${errCount === 1 ? '' : 's'} · showing ${events.length}`
+            : 'all clear';
+    }
+
+    list.innerHTML = '';
+    if (!events.length) {
+        const empty = document.createElement('div');
+        empty.className = 'events-empty';
+        empty.textContent = 'No warnings or errors in this scope';
+        list.appendChild(empty);
+        return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    events.forEach((e) => {
+        const item = document.createElement('div');
+        item.className = `event event-${e.level}`;
+
+        const time = document.createElement('span');
+        time.className = 'event-time';
+        time.textContent = e.ts ? String(e.ts).slice(5) : '—';
+
+        const tag = document.createElement('span');
+        tag.className = 'event-tag';
+        tag.textContent = e.level === 'error' ? 'ERR' : 'WARN';
+
+        const msg = document.createElement('span');
+        msg.className = 'event-msg';
+        msg.textContent = e.message || '';
+        msg.title = e.message || '';
+
+        item.append(time, tag, msg);
+        fragment.appendChild(item);
+    });
+    list.appendChild(fragment);
 }
 
 // --- Date filter ----------------------------------------------------------
@@ -230,27 +376,32 @@ function chartColors() {
     };
 }
 
-function updateChart(models) {
-    const ctxEl = document.getElementById('performanceChart');
-    if (!ctxEl) return;
+/**
+ * Render (or re-render) one per-model bar chart.
+ * @returns {Chart|null} the new chart instance
+ */
+function updateBarChart(canvasId, models, field, existing) {
+    const ctxEl = document.getElementById(canvasId);
+    if (!ctxEl) return null;
 
-    if (performanceChart) performanceChart.destroy();
+    if (existing) existing.destroy();
 
     const c = chartColors();
     const barPalette = [c.accent, c.accent2, c.accent3, c.green];
-    const labels = models.map((m) => {
+    const sorted = [...models].sort((a, b) => (b[field] ?? 0) - (a[field] ?? 0));
+    const labels = sorted.map((m) => {
         const name = m.name || '';
         return name.length > 18 ? `${name.slice(0, 15)}…` : name;
     });
 
-    performanceChart = new Chart(ctxEl, {
+    return new Chart(ctxEl, {
         type: 'bar',
         data: {
             labels,
             datasets: [{
                 label: 'Tokens per Second',
-                data: models.map((m) => m.tokensPerSec),
-                backgroundColor: models.map((_, i) => barPalette[i % barPalette.length]),
+                data: sorted.map((m) => m[field] ?? null),
+                backgroundColor: sorted.map((_, i) => barPalette[i % barPalette.length]),
                 hoverBackgroundColor: c.accent,
                 borderRadius: 8,
                 borderSkipped: false,
@@ -293,6 +444,13 @@ function updateChart(models) {
             animation: { duration: 700, easing: 'easeOutQuart' },
         },
     });
+}
+
+function rerenderModelCharts() {
+    const models = Array.isArray(lastModels) ? lastModels : [];
+    if (!models.length) return;
+    genChart = updateBarChart('genChart', models, 'genTps', genChart);
+    promptChart = updateBarChart('promptChart', models, 'promptTps', promptChart);
 }
 
 // --- Live feed (SSE) ------------------------------------------------------
@@ -360,17 +518,20 @@ function initLiveChart() {
 function updateLiveChart() { if (liveChart) liveChart.update('none'); }
 
 function appendLivePoint(label, value) {
+    if (value === null || value === undefined) return; // prompt-only task: no gen point
     liveLabels.push(label);
     liveData.push(value);
     while (liveLabels.length > LIVE_MAX_POINTS) { liveLabels.shift(); liveData.shift(); }
     updateLiveChart();
 }
 
-function setLiveReadout(value, model, timeLabel) {
+function setLiveReadout(value, model, timeLabel, promptValue) {
     const cur = document.getElementById('liveCurrent');
+    const promptEl = document.getElementById('livePrompt');
     const mdl = document.getElementById('liveModel');
     const last = document.getElementById('liveLast');
     if (cur)  cur.textContent = (value === null || value === undefined) ? '–' : Number(value).toFixed(2);
+    if (promptEl) promptEl.textContent = (promptValue === null || promptValue === undefined) ? '–' : Number(promptValue).toFixed(2);
     if (mdl)  { mdl.textContent = model || '—'; mdl.title = model || ''; }
     if (last) last.textContent = timeLabel || '–';
 }
@@ -402,6 +563,7 @@ function seedLive(history) {
     liveData.length = 0;
     let idx = 0;
     for (const s of history) {
+        if (s.tps === null || s.tps === undefined) continue;
         const label = s.ts ? String(s.ts).slice(11) : String(idx);
         liveLabels.push(label);
         liveData.push(Number(s.tps));
@@ -409,7 +571,7 @@ function seedLive(history) {
     }
     while (liveLabels.length > LIVE_MAX_POINTS) { liveLabels.shift(); liveData.shift(); }
     const last = history.length ? history[history.length - 1] : null;
-    if (last) setLiveReadout(last.tps, last.model, last.ts ? String(last.ts).slice(11) : '–');
+    if (last) setLiveReadout(last.tps, last.model, last.ts ? String(last.ts).slice(11) : '–', last.promptTps);
     updateLiveChart();
 }
 
@@ -423,6 +585,10 @@ function connectLive() {
         let payload;
         try { payload = JSON.parse(ev.data); } catch (e) { return; }
         setLiveFile(payload.file || null);
+        if (payload.model) {
+            const el = document.getElementById('liveModel');
+            if (el) { el.textContent = payload.model; el.title = payload.model; }
+        }
         seedLive(Array.isArray(payload.history) ? payload.history : []);
         setLiveBadge('live');
     });
@@ -432,8 +598,26 @@ function connectLive() {
         try { s = JSON.parse(ev.data); } catch (e) { return; }
         const label = s.ts ? String(s.ts).slice(11) : String(liveLabels.length);
         appendLivePoint(label, Number(s.tps));
-        setLiveReadout(s.tps, s.model, label);
+        setLiveReadout(s.tps, s.model, label, s.promptTps);
         setLiveBadge('live');
+    });
+
+    liveSource.addEventListener('model', (ev) => {
+        let payload;
+        try { payload = JSON.parse(ev.data); } catch (e) { return; }
+        if (!payload.model) return;
+        const el = document.getElementById('liveModel');
+        if (el) { el.textContent = payload.model; el.title = payload.model; }
+    });
+
+    liveSource.addEventListener('events', (ev) => {
+        // Live warnings/errors: surface them in the console for now — they
+        // also accumulate in the Health panel on the next refresh.
+        let payload;
+        try { payload = JSON.parse(ev.data); } catch (e) { return; }
+        (payload.events || []).forEach((e) => {
+            console.warn(`[${e.level}] ${e.message || ''}`);
+        });
     });
 
     liveSource.addEventListener('meta', (ev) => {
@@ -509,8 +693,7 @@ function applyTheme(theme) {
     themeLabel.textContent = isDark ? 'Light' : 'Dark';
 
     // Re-render charts so they pick up the new palette.
-    const models = Array.isArray(lastModels) ? lastModels : [];
-    if (models.length) updateChart(models);
+    rerenderModelCharts();
     if (document.getElementById('liveChart')) initLiveChart();
 }
 
@@ -540,6 +723,7 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 window.addEventListener('resize', function () {
-    if (performanceChart) performanceChart.resize();
+    if (genChart) genChart.resize();
+    if (promptChart) promptChart.resize();
     if (liveChart) liveChart.resize();
 });

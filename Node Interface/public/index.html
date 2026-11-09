@@ -124,7 +124,11 @@
                         <div class="live-stats">
                             <div class="live-metric">
                                 <div class="live-metric-value"><span id="liveCurrent">–</span><span class="stat-unit">tok/s</span></div>
-                                <div class="live-metric-label">current</div>
+                                <div class="live-metric-label">generation</div>
+                            </div>
+                            <div class="live-metric">
+                                <div class="live-metric-value"><span id="livePrompt">–</span><span class="stat-unit">tok/s</span></div>
+                                <div class="live-metric-label">prompt</div>
                             </div>
                             <div class="live-metric">
                                 <div class="live-metric-value"><span id="liveModel" class="live-model">—</span></div>
@@ -148,31 +152,50 @@
                     <!-- Stats -->
                     <div class="stats-grid">
                         <div class="stat-card stat-card--primary">
-                            <div class="stat-label">Average throughput</div>
-                            <div class="stat-value"><span id="overallAverage">–</span><span class="stat-unit">tok/s</span></div>
+                            <div class="stat-label">Avg generation speed</div>
+                            <div class="stat-value"><span id="overallGen">–</span><span class="stat-unit">tok/s</span></div>
                         </div>
                         <div class="stat-card">
-                            <div class="stat-label">Log files</div>
-                            <div class="stat-value"><span id="totalLogFiles">–</span></div>
+                            <div class="stat-label">Avg prompt speed</div>
+                            <div class="stat-value"><span id="overallPrompt">–</span><span class="stat-unit">tok/s</span></div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Requests completed</div>
+                            <div class="stat-value"><span id="totalTasks">–</span></div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Tokens generated</div>
+                            <div class="stat-value"><span id="totalGenTokens">–</span></div>
                         </div>
                         <div class="stat-card">
                             <div class="stat-label">Models detected</div>
                             <div class="stat-value"><span id="modelsDetected">–</span></div>
                         </div>
-                        <div class="stat-card">
-                            <div class="stat-label">Total samples</div>
-                            <div class="stat-value"><span id="totalSamples">–</span></div>
+                        <div class="stat-card stat-card--warn">
+                            <div class="stat-label">Warnings · Errors</div>
+                            <div class="stat-value"><span id="warnCount">–</span><span class="stat-unit warn-sep">·</span><span id="errCount">–</span></div>
                         </div>
                     </div>
 
-                    <!-- Throughput bar chart -->
-                    <div class="panel">
-                        <div class="panel-head">
-                            <h2>Model throughput</h2>
-                            <span class="panel-hint" id="chartHint">average tokens per second</span>
+                    <!-- Throughput bar charts (prompt vs generation) -->
+                    <div class="chart-grid">
+                        <div class="panel">
+                            <div class="panel-head">
+                                <h2>Generation speed</h2>
+                                <span class="panel-hint">avg tokens per second</span>
+                            </div>
+                            <div class="chart-wrap">
+                                <canvas id="genChart" role="img" aria-label="Bar chart of average generation tokens per second per model"></canvas>
+                            </div>
                         </div>
-                        <div class="chart-wrap">
-                            <canvas id="performanceChart" role="img" aria-label="Bar chart of average tokens per second per model"></canvas>
+                        <div class="panel">
+                            <div class="panel-head">
+                                <h2>Prompt processing</h2>
+                                <span class="panel-hint">avg tokens per second</span>
+                            </div>
+                            <div class="chart-wrap">
+                                <canvas id="promptChart" role="img" aria-label="Bar chart of average prompt tokens per second per model"></canvas>
+                            </div>
                         </div>
                     </div>
 
@@ -187,14 +210,57 @@
                                 <thead>
                                     <tr>
                                         <th scope="col">Model</th>
-                                        <th scope="col" class="num">Tokens / sec</th>
-                                        <th scope="col" class="num">Samples</th>
+                                        <th scope="col" class="num">Gen tok/s</th>
+                                        <th scope="col" class="num">Prompt tok/s</th>
+                                        <th scope="col" class="num">Tasks</th>
+                                        <th scope="col" class="num">Gen tokens</th>
+                                        <th scope="col" class="num">Draft acc.</th>
+                                        <th scope="col" class="num">Load</th>
+                                        <th scope="col">Vision</th>
                                     </tr>
                                 </thead>
                                 <tbody id="modelTableBody">
-                                    <tr><td colspan="3">Waiting for data…</td></tr>
+                                    <tr><td colspan="8">Waiting for data…</td></tr>
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+
+                    <!-- Model sessions -->
+                    <div class="panel">
+                        <div class="panel-head">
+                            <h2>Model sessions</h2>
+                            <span class="panel-hint" id="sessionCount">0 sessions</span>
+                        </div>
+                        <div class="table-scroll">
+                            <table id="sessionTable">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Started</th>
+                                        <th scope="col">Model</th>
+                                        <th scope="col" class="num">Load time</th>
+                                        <th scope="col" class="num">Context</th>
+                                        <th scope="col" class="num">Slots</th>
+                                        <th scope="col" class="num">Threads</th>
+                                        <th scope="col" class="num">Port</th>
+                                        <th scope="col">Vision</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="sessionTableBody">
+                                    <tr><td colspan="8">Waiting for data…</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Health -->
+                    <div class="panel">
+                        <div class="panel-head">
+                            <h2>Health &amp; warnings</h2>
+                            <span class="panel-hint" id="healthHint">—</span>
+                        </div>
+                        <div class="events-scroll" id="eventsList" role="log" aria-label="Recent warnings and errors">
+                            <div class="events-empty">No warnings or errors in this scope</div>
                         </div>
                     </div>
 
