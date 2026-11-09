@@ -1,173 +1,184 @@
+'use strict';
+
+/* =========================================================================
+ * server.js — Local LLM Performance Monitor
+ *
+ * Express server that serves the dashboard and exposes the log data.
+ * It parses the raw LM Studio logs itself (see logParser.js) — it does NOT
+ * run the PowerShell/bat and does NOT read the generated .txt reports.
+ *
+ * Endpoints:
+ *   GET /api/dates                -> available log dates (newest first)
+ *   GET /api/performance-data     -> metrics, optionally ?date=YYYY-MM-DD
+ *   GET /api/live                 -> Server-Sent Events live throughput feed
+ * ========================================================================= */
+
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
-const { exec } = require('child_process');
+
+const {
+    getLogRoot,
+    listDates,
+    getPerformanceData,
+    findActiveLogFile,
+    readNewLines,
+    readTailSamples,
+} = require('./logParser');
+
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 
-// Serve static files from 'public' directory
 app.use(express.static(path.join(__dirname, 'public')));
-
-// Middleware to parse JSON bodies
 app.use(express.json());
 
-// Route for the main dashboard page
+// Main dashboard page
 app.get('/', (req, res) => {
     const indexPath = path.join(__dirname, 'public', 'index.html');
-    if (fs.existsSync(indexPath)) {
-        res.sendFile(indexPath);
-    } else {
-        res.status(404).send('Dashboard not found');
+    if (fs.existsSync(indexPath)) res.sendFile(indexPath);
+    else res.status(404).send('Dashboard not found');
+});
+
+// Available log dates for the filter dropdown
+app.get('/api/dates', (req, res) => {
+    try {
+        res.json({ logRoot: getLogRoot(), dates: listDates() });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to list log dates', details: err.message });
     }
 });
 
-// API endpoint to get performance data from logs
+// Metrics for a date (or all logs when no date is given)
 app.get('/api/performance-data', (req, res) => {
     try {
-        // Execute the PowerShell script to generate new report
-        const powershellScript = path.join(__dirname, '..', 'GenerateReport.ps1');
-        const logRoot = path.join(process.env.USERPROFILE, '.lmstudio', 'apps', 'bionic', 'server-logs');
-        
-        console.log('Attempting to parse logs from:', logRoot);
-        
-        // Execute PowerShell script using cmd
-        exec(`powershell -ExecutionPolicy Bypass -File "${powershellScript}" -LogRoot "${logRoot}"`, 
-            { cwd: __dirname },
-            (error, stdout, stderr) => {
-                if (error) {
-                    console.error('Error executing PowerShell script:', error);
-                    return res.status(500).json({ 
-                        error: 'Failed to generate performance report', 
-                        details: stderr || error.message
-                    });
-                }
-                
-                // Read the latest generated report
-                const generatedDir = path.join(__dirname, '..', 'generated');
-                fs.readdir(generatedDir, (err, files) => {
-                    if (err) {
-                        console.error('Error reading generated directory:', err);
-                        return res.status(500).json({ 
-                            error: 'Failed to read generated reports' 
-                        });
-                    }
-                    
-                    // Find the most recent txt file
-                    const txtFiles = files.filter(file => file.endsWith('.txt'));
-                    if (txtFiles.length === 0) {
-                        console.log('No txt report found');
-                        return res.json({ message: 'No performance data available yet' });
-                    }
-                    
-                    // Get the most recent file by modification time
-                    const latestFile = txtFiles.reduce((latest, current) => {
-                        try {
-                            const currentPath = path.join(generatedDir, current);
-                            const latestPath = path.join(generatedDir, latest);
-                            return fs.statSync(currentPath).mtime > fs.statSync(latestPath).mtime ? current : latest;
-                        } catch (e) {
-                            return latest;
-                        }
-                    });
-                    
-                    const reportPath = path.join(generatedDir, latestFile);
-                    fs.readFile(reportPath, 'utf8', (err, data) => {
-                        if (err) {
-                            console.error('Error reading report file:', err);
-                            return res.status(500).json({ 
-                                error: 'Failed to read performance report' 
-                            });
-                        }
-                        
-                        // Parse the text report into structured data
-                        const parsedData = parseReportText(data);
-                        res.json({
-                            reportFile: latestFile,
-                            reportContent: data,
-                            timestamp: new Date().toISOString(),
-                            ...parsedData
-                        });
-                    });
-                });
-            });
-    } catch (error) {
-        console.error('Unexpected error:', error);
-        return res.status(500).json({ 
-            error: 'Unexpected server error', 
-            details: error.message 
-        });
+        const date = typeof req.query.date === 'string' ? req.query.date.trim() : null;
+        const data = getPerformanceData({ date: date || null });
+        res.json({ timestamp: new Date().toISOString(), ...data });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to parse logs', details: err.message });
     }
 });
 
-// Function to parse the text report format into structured data
-function parseReportText(reportContent) {
-    const lines = reportContent.split('\n');
-    const result = { models: [], overallAverage: null, stats: {} };
-    
-    let inModelSection = false;
-    
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
-        
-        // Look for model performance data
-        if (line.includes('MODEL PERFORMANCE SUMMARY') || 
-            line.includes('=============================================')) {
-            inModelSection = true;
-            continue;
-        }
-        
-        if (inModelSection && line === '=============================================') {
-            inModelSection = false;
-            continue;
-        }
-        
-        if (inModelSection && line.length > 0 && !line.startsWith('BIONIC LOG REPORT') && 
-            !line.includes('Generated:') && !line.includes('Total log files:') && 
-            !line.includes('Models detected:') && !line.includes('Total performance samples:')) {
-            
-            // Parse model data like "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf: 244.703 tokens/sec (364 samples)"
-            const match = line.match(/^(.+?):\s+([0-9.]+)\s+tokens\/sec\s+\((\d+)\s+samples\)/);
-            
-            if (match) {
-                result.models.push({
-                    name: match[1],
-                    tokensPerSec: parseFloat(match[2]),
-                    sampleCount: parseInt(match[3])
-                });
-            }
-        }
-        
-        // Parse overall average
-        if (line.includes('Overall Average:')) {
-            const match = line.match(/Overall Average:\s+([0-9.]+)\s+tokens\/sec/);
-            if (match) {
-                result.overallAverage = parseFloat(match[1]);
-            }
-        }
-        
-        // Parse stats section
-        if (line.includes('Total log files:')) {
-            const match = line.match(/Total log files:\s+(\d+)/);
-            if (match) result.stats.totalLogFiles = parseInt(match[1]);
-        }
-        
-        if (line.includes('Models detected:')) {
-            const match = line.match(/Models detected:\s+(\d+)/);
-            if (match) result.stats.modelsDetected = parseInt(match[1]);
-        }
-        
-        if (line.includes('Total performance samples:')) {
-            const match = line.match(/Total performance samples:\s+(\d+)/);
-            if (match) result.stats.totalSamples = parseInt(match[1]);
-        }
+// Live throughput feed (Server-Sent Events)
+const LIVE_POLL_MS = 1000;
+const LIVE_HISTORY_MS = 5 * 60 * 1000; // seed with ~5 min of history
+const LIVE_MAX_SAMPLES = 240;
+
+app.get('/api/live', (req, res) => {
+    res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no',
+    });
+    res.write(': connected\n\n');
+
+    let activeFile = findActiveLogFile();
+    let offset = 0;
+    if (activeFile) {
+        try { offset = fs.statSync(activeFile).size; } catch { offset = 0; }
     }
-    
-    return result;
+
+    const send = (event, data) => {
+        if (res.writableEnded) return;
+        try { res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); }
+        catch { /* socket already gone */ }
+    };
+
+    // Initial state + trailing history so the chart isn't empty on load.
+    let history = [];
+    if (activeFile) {
+        try { history = readTailSamples(activeFile, 1024 * 1024, LIVE_MAX_SAMPLES); } catch { history = []; }
+        // keep only the recent window
+        history = history.filter((s) => recentWithin(s, LIVE_HISTORY_MS));
+    }
+    send('init', { file: activeFile, history, now: Date.now() });
+
+    const poll = setInterval(() => {
+        // Detect log rotation (a newer file became the active one).
+        const latest = findActiveLogFile();
+        if (latest && latest !== activeFile) {
+            activeFile = latest;
+            try { offset = fs.statSync(activeFile).size; } catch { offset = 0; }
+            send('meta', { file: activeFile, rotated: true });
+            return;
+        }
+        if (!activeFile) return;
+
+        let stat;
+        try { stat = fs.statSync(activeFile); } catch { return; }
+        if (stat.size < offset) offset = 0; // truncated
+        if (stat.size === offset) return;   // nothing new
+
+        let chunk;
+        try {
+            chunk = readNewLines(activeFile, offset, stat.size);
+        } catch { return; }
+        offset = chunk.nextOffset;
+        if (!chunk.lines.length) return;
+
+        const samples = parseLiveLines(chunk.lines);
+        if (samples.length) for (const s of samples) send('sample', s);
+    }, LIVE_POLL_MS);
+
+    const keepalive = setInterval(() => {
+        if (!res.writableEnded) res.write(': ping\n\n');
+    }, 15000);
+
+    req.on('close', () => {
+        clearInterval(poll);
+        clearInterval(keepalive);
+    });
+});
+
+// Parse raw log lines into live samples (local helper, shares logParser regexes).
+const MODEL_RE = /loading model\s+'([^']+?)'/;
+const TPS_RE = /([0-9]+(?:\.[0-9]+)?)\s+tokens per second/;
+const TIMESTAMP_RE = /^\[(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})\]/;
+
+function leafName(p) {
+    return String(p || '').split(/[\\/]/).filter(Boolean).pop() || p;
 }
 
-// Start the server
-app.listen(PORT, () => {
-    console.log(`LLM Performance Dashboard is running on http://localhost:${PORT}`);
-});
+function parseLiveLines(lines) {
+    const out = [];
+    let currentModel = null;
+    // A print_timing block spans several lines; the per-batch "eval time" line
+    // carries no wall-clock prefix, so carry the last seen timestamp forward.
+    let lastTs = null;
+    for (const line of lines) {
+        const tsMatch = line.match(TIMESTAMP_RE);
+        if (tsMatch) lastTs = `${tsMatch[1]} ${tsMatch[2]}`;
+        const mMatch = line.match(MODEL_RE);
+        if (mMatch) { currentModel = leafName(mMatch[1]); continue; }
+        const tMatch = line.match(TPS_RE);
+        if (tMatch && currentModel) {
+            out.push({
+                ts: lastTs,
+                tps: parseFloat(tMatch[1]),
+                model: currentModel,
+            });
+        }
+    }
+    return out;
+}
+
+function recentWithin(sample, windowMs) {
+    if (!sample.ts) return true;
+    const m = sample.ts.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/);
+    if (!m) return true;
+    const t = new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]).getTime();
+    return (Date.now() - t) <= windowMs;
+}
+
+// Simple health check
+app.get('/api/health', (req, res) => res.json({ ok: true, logRoot: getLogRoot() }));
+
+if (require.main === module) {
+    app.listen(PORT, () => {
+        console.log(`LLM Performance Monitor running on http://localhost:${PORT}`);
+        console.log(`Log root: ${getLogRoot()}`);
+    });
+}
 
 module.exports = app;

@@ -7,7 +7,7 @@ Tools and a local web dashboard for analyzing the performance logs produced by *
 | Component | Location | Purpose |
 | --- | --- | --- |
 | Log parser (CLI) | `Bilonic-Log-Report.bat` → `GenerateReport.ps1` | Parse LM Studio logs into a text report |
-| Web dashboard | [`Node Interface/`](Node Interface/) | Real-time visual monitoring (Express + Chart.js) |
+| Web dashboard | [`Node Interface/`](Node Interface/) | Self-contained visual monitoring (Express + Chart.js): date filter + live tokens/sec feed |
 | Sample logs | `sample log/` | Fallback logs used when LM Studio logs are missing |
 | Generated reports | `generated/` | Timestamped `.txt` reports (git-ignored) |
 
@@ -44,7 +44,7 @@ The output directory is created automatically if it does not exist.
 
 ## 2. Web dashboard (Node.js)
 
-A local, real-time visualization of the same metrics — charts, a per-model breakdown, and the latest parsed report, all in a clean terminal-inspired UI with light and dark themes.
+A local, real-time visualization of the same metrics — stats, a per-model chart, a model breakdown, a date filter, and a live tokens/sec feed — all in a clean terminal-inspired UI with light and dark themes. It is **self-contained**: it parses the raw logs itself (via `logParser.js`) and never depends on the PowerShell parser or the generated `.txt` reports.
 
 ### Getting started
 From the [`Node Interface/`](Node Interface/) folder:
@@ -57,25 +57,30 @@ npm start          # or: npm run dev (nodemon)
 Then open <http://localhost:3000>.
 
 ### Features
+- **Date filter** — scope the metrics to a specific log date, or view **all dates** (overall)
+- **Live throughput feed** — a continuously-updating tokens/sec line chart over Server-Sent Events (no manual `tail`)
 - **Live metrics** — overall average, log files, models detected, total samples
 - **Throughput chart** — per-model tokens/sec (Chart.js), re-themes with the UI
-- **Model breakdown** — sortable-by-value table of every model
-- **Recent report** — the actual parsed log report, not a placeholder
+- **Model breakdown** — table of every model with sample counts
 - **Auto-refresh** — optional 5-second polling
 - **Light / dark theme** — persisted in `localStorage`, no flash on load
 - **Status indicator** — online / busy / offline connection state
 
 ### How it works
-`server.js` (Express) exposes `GET /api/performance-data`. On each call it runs the PowerShell parser, reads the most recent `generated/*.txt` report, parses it into structured JSON (models, overall average, stats, raw report text), and returns it to the dashboard.
+`server.js` (Express) parses the raw logs via `logParser.js` and exposes:
+- `GET /api/dates` — available log dates for the filter
+- `GET /api/performance-data?date=YYYY-MM-DD` — per-model + overall metrics (default: all dates)
+- `GET /api/live` — a Server-Sent Events stream of new tokens/sec samples (seeded with a short trailing history)
 
 ```
 Node Interface/
-├── server.js           # Express server + /api/performance-data
+├── server.js           # Express server + /api/dates, /api/performance-data, /api/live (SSE)
+├── logParser.js        # Self-contained raw-log parser (the dashboard's own data source)
 ├── package.json
 ├── public/
 │   ├── index.html      # Dashboard markup (terminal window layout)
 │   ├── style.css       # Design tokens + light/dark themes
-│   └── script.js       # Fetch, Chart.js, table, theme + auto-refresh
+│   └── script.js       # Date filter, Chart.js, table, live feed, theme + auto-refresh
 └── README.md
 ```
 
@@ -88,10 +93,10 @@ The visual language is adapted from the JoomunOS terminal aesthetic (noorpersona
 
 ```
 .
-├── Bilonic-Log-Report.bat    # CLI launcher
-├── GenerateReport.ps1        # PowerShell log parser → .txt report
+├── Bilonic-Log-Report.bat    # CLI launcher (standalone report tool)
+├── GenerateReport.ps1        # PowerShell log parser → .txt report (standalone report tool)
 ├── sample log/               # Fallback sample logs
-├── generated/                # Output reports (git-ignored)
-├── Node Interface/           # Web dashboard (Express + Chart.js)
+├── generated/                # Output reports from the CLI tool (git-ignored)
+├── Node Interface/           # Web dashboard (self-contained Express + Chart.js)
 └── README.md
 ```

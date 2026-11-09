@@ -21,7 +21,6 @@
         })();
     </script>
 
-    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -53,16 +52,23 @@
                 <div class="prompt-line" aria-hidden="true">
                     <span class="prompt-user">visitor@dashboard</span>
                     <span class="prompt-sep">:~$</span>
-                    <span class="prompt-cmd">analyze --models --tokens</span>
+                    <span class="prompt-cmd">monitor --live --filter=date</span>
                     <span class="cursor"></span>
                 </div>
                 <div class="hero">
                     <h1>Local LLM Performance</h1>
-                    <p class="subtitle">Real-time token throughput for the models running on your LM Studio instance, parsed straight from the server logs.</p>
+                    <p class="subtitle">Live token throughput straight from your LM Studio logs — filter by date, watch the running total, and drill into per-model averages.</p>
                 </div>
 
                 <!-- Controls -->
                 <div class="controls">
+                    <label class="date-filter" for="dateFilter">
+                        <span class="date-filter-label">Scope</span>
+                        <select id="dateFilter" aria-label="Filter logs by date">
+                            <option value="">All dates</option>
+                        </select>
+                    </label>
+
                     <button id="refreshBtn" class="btn btn-primary" type="button">
                         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <path d="M21 12a9 9 0 1 1-2.64-6.36" />
@@ -93,7 +99,7 @@
                 <!-- Status banners -->
                 <div id="loading" class="banner banner-loading hidden" role="status">
                     <span class="spinner" aria-hidden="true"></span>
-                    <span>Generating performance report…</span>
+                    <span>Parsing logs…</span>
                 </div>
                 <div id="error" class="banner banner-error hidden" role="alert">
                     <span id="errorMessage"></span>
@@ -101,10 +107,48 @@
 
                 <!-- Dashboard content -->
                 <div id="dashboard-content" class="content">
+                    <!-- LIVE FEED -->
+                    <div class="panel live-panel">
+                        <div class="panel-head">
+                            <div class="live-head-left">
+                                <span class="live-badge" id="liveBadge">
+                                    <span class="live-dot" aria-hidden="true"></span><span id="liveBadgeText">LIVE</span>
+                                </span>
+                                <h2>Live throughput</h2>
+                            </div>
+                            <button id="liveToggle" class="btn" type="button" aria-pressed="true">
+                                <span id="liveToggleLabel">Pause</span>
+                            </button>
+                        </div>
+
+                        <div class="live-stats">
+                            <div class="live-metric">
+                                <div class="live-metric-value"><span id="liveCurrent">–</span><span class="stat-unit">tok/s</span></div>
+                                <div class="live-metric-label">current</div>
+                            </div>
+                            <div class="live-metric">
+                                <div class="live-metric-value"><span id="liveModel" class="live-model">—</span></div>
+                                <div class="live-metric-label">active model</div>
+                            </div>
+                            <div class="live-metric">
+                                <div class="live-metric-value"><span id="liveLast">–</span></div>
+                                <div class="live-metric-label">last sample</div>
+                            </div>
+                            <div class="live-metric live-metric-file">
+                                <div class="live-file" id="liveFile">—</div>
+                                <div class="live-metric-label">active log</div>
+                            </div>
+                        </div>
+
+                        <div class="chart-wrap live-chart-wrap">
+                            <canvas id="liveChart" role="img" aria-label="Live line chart of tokens per second over time"></canvas>
+                        </div>
+                    </div>
+
                     <!-- Stats -->
                     <div class="stats-grid">
                         <div class="stat-card stat-card--primary">
-                            <div class="stat-label">Overall average</div>
+                            <div class="stat-label">Average throughput</div>
                             <div class="stat-value"><span id="overallAverage">–</span><span class="stat-unit">tok/s</span></div>
                         </div>
                         <div class="stat-card">
@@ -121,18 +165,18 @@
                         </div>
                     </div>
 
-                    <!-- Chart -->
+                    <!-- Throughput bar chart -->
                     <div class="panel">
                         <div class="panel-head">
                             <h2>Model throughput</h2>
-                            <span class="panel-hint">tokens per second</span>
+                            <span class="panel-hint" id="chartHint">average tokens per second</span>
                         </div>
                         <div class="chart-wrap">
-                            <canvas id="performanceChart" role="img" aria-label="Bar chart of tokens per second per model"></canvas>
+                            <canvas id="performanceChart" role="img" aria-label="Bar chart of average tokens per second per model"></canvas>
                         </div>
                     </div>
 
-                    <!-- Table -->
+                    <!-- Model breakdown table -->
                     <div class="panel">
                         <div class="panel-head">
                             <h2>Model breakdown</h2>
@@ -154,22 +198,26 @@
                         </div>
                     </div>
 
-                    <!-- Report -->
+                    <!-- Data source -->
                     <div class="panel">
                         <div class="panel-head">
-                            <h2>Recent report</h2>
-                            <span class="panel-hint" id="reportFile">no report yet</span>
+                            <h2>Data source</h2>
+                            <span class="panel-hint" id="scopeHint">all dates</span>
                         </div>
-                        <pre id="reportContent" class="report-pre">No report available yet. Run a refresh to parse the latest logs.</pre>
+                        <div class="source-meta">
+                            <div class="source-row"><span class="source-key">Log root</span><span class="source-val" id="sourceRoot">—</span></div>
+                            <div class="source-row"><span class="source-key">Files analyzed</span><span class="source-val" id="sourceFileCount">—</span></div>
+                            <div class="source-row"><span class="source-key">Date range</span><span class="source-val" id="sourceRange">—</span></div>
+                        </div>
+                        <ul class="source-files" id="sourceFiles"></ul>
                     </div>
                 </div>
             </div>
 
-            <!-- Footer -->
             <footer class="terminal-foot">
                 <span>LLM Performance Monitor</span>
                 <span class="sep">·</span>
-                <span>parsing local LM Studio logs</span>
+                <span>parsing LM Studio logs in real time</span>
             </footer>
         </section>
     </main>
