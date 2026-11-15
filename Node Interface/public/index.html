@@ -27,7 +27,10 @@
     <!-- Active Models List -->
     <div id="activeModels" style="margin-top:20px;">
       <h2>Active Model(s)</h2>
-      <ul id="modelsList"></ul>
+      <table id="modelTable">
+        <thead><tr><th scope="col">Model</th><th scope="col">Loaded At</th></tr></thead>
+        <tbody id="modelsList"></tbody>
+      </table>
     </div>
 <div id="dataSummary" class="data-summary" style="margin-top:8px; font-size:0.85rem;color:#888;"><span id="summaryRoot"></span> | <span id="summaryCount"></span></div>
 <div id="lastUpdated" class="last-updated">—</div>
@@ -58,12 +61,17 @@ document.addEventListener('DOMContentLoaded', () => {
   fetch('/api/active-models')
     .then(r=>r.json())
     .then(d=>{
-      const ul = document.getElementById('modelsList');
-      if (!d.models || !d.models.length) { ul.textContent='None'; return; }
+      const tbody = document.getElementById('modelsList');
+      if (!d.models || !d.models.length) { tbody.innerHTML='<tr><td colspan="2">None</td></tr>'; return; }
       d.models.forEach(m=>{
-        const li=document.createElement('li');
-        li.textContent=`${m.name} (loaded ${new Date(m.loadedAt).toLocaleString()})`;
-        ul.appendChild(li);
+        const tr=document.createElement('tr');
+        const tdName=document.createElement('td');
+        tdName.className='model-name';
+        tdName.textContent=m.name;
+        const tdTime=document.createElement('td');
+        tdTime.textContent=new Date(m.loadedAt).toLocaleString();
+        tr.appendChild(tdName); tr.appendChild(tdTime);
+        tbody.appendChild(tr);
       });
     })
     .catch(e=>{ console.error(e); });
