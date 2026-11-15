@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#070a11">
+    <title>Local LLM Performance Monitor</title>
+
+    <!-- Set theme before first paint to avoid a flash -->
+    <script>
+        (function () {
+            try {
+                var saved = localStorage.getItem('dashboard-theme');
+                var theme = (saved === 'light' || saved === 'dark')
+                    ? saved
+                    : (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+                document.documentElement.setAttribute('data-theme', theme);
+            } catch (e) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <main class="shell">
+        <section class="terminal" aria-label="LLM performance monitor">
+            <!-- Terminal chrome -->
+            <header class="terminal-bar">
+                <div class="dots" aria-hidden="true">
+                    <span class="dot red"></span>
+                    <span class="dot yellow"></span>
+                    <span class="dot green"></span>
+                </div>
+                <div class="terminal-title">
+                    <span class="path">joomun@portfolio:~$</span> <span class="cmd">llm-monitor</span>
+                </div>
+                <div class="terminal-status" id="connStatus" role="status">
+                    <span class="status-dot" aria-hidden="true"></span>
+                    <span id="statusText">connecting</span>
+                </div>
+            </header>
+
+            <div class="terminal-body">
+                <!-- Prompt + hero -->
+                <div class="prompt-line" aria-hidden="true">
+                    <span class="prompt-user">visitor@dashboard</span>
+                    <span class="prompt-sep">:~$</span>
+                    <span class="prompt-cmd">monitor --live --filter=date</span>
+                    <span class="cursor"></span>
+                </div>
+                <div class="hero">
+                    <h1>Local LLM Performance</h1>
+                    <p class="subtitle">Live token throughput straight from your LM Studio logs — filter by date, watch the running total, and drill into per-model averages.</p>
+                </div>
+
+                <!-- Controls -->
+                <div class="controls">
+                    <label class="date-filter" for="dateFilter">
+                        <span class="date-filter-label">Scope</span>
+                        <select id="dateFilter" aria-label="Filter logs by date">
+                            <option value="">All dates</option>
+                        </select>
+                    </label>
+
+                    <button id="refreshBtn" class="btn btn-primary" type="button">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                            <path d="M21 3v6h-6" />
+                        </svg>
+                        <span>Refresh</span>
+                    </button>
+
+                    <button id="autoRefreshToggle" class="btn" type="button" aria-pressed="false">
+                        <span class="led" aria-hidden="true"></span>
+                        <span id="autoRefreshLabel">Auto-refresh: off</span>
+                    </button>
+
+                    <button id="themeToggle" class="btn" type="button">
+                        <svg class="icon icon-moon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                        </svg>
+                        <svg class="icon icon-sun" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:none">
+                            <circle cx="12" cy="12" r="4" />
+                            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+                        </svg>
+                        <span id="themeLabel">Theme</span>
+                    </button>
+
+                    <span id="lastUpdated" class="last-updated" aria-live="polite">—</span>
+                </div>
+
+                <!-- Status banners -->
+                <div id="loading" class="banner banner-loading hidden" role="status">
+                    <span class="spinner" aria-hidden="true"></span>
+                    <span>Parsing logs…</span>
+                </div>
+                <div id="error" class="banner banner-error hidden" role="alert">
+                    <span id="errorMessage"></span>
+                </div>
+
+                <!-- Dashboard content -->
+                <div id="dashboard-content" class="content">
+                    <!-- LIVE FEED -->
+                    <div class="panel live-panel">
+                        <div class="panel-head">
+                            <div class="live-head-left">
+                                <span class="live-badge" id="liveBadge">
+                                    <span class="live-dot" aria-hidden="true"></span><span id="liveBadgeText">LIVE</span>
+                                </span>
+                                <h2>Live throughput</h2>
+                            </div>
+                            <button id="liveToggle" class="btn" type="button" aria-pressed="true">
+                                <span id="liveToggleLabel">Pause</span>
+                            </button>
+                        </div>
+
+                        <div class="live-stats">
+                            <div class="live-metric">
+                                <div class="live-metric-value"><span id="liveCurrent">–</span><span class="stat-unit">tok/s</span></div>
+                                <div class="live-metric-label">generation</div>
+                            </div>
+                            <div class="live-metric">
+                                <div class="live-metric-value"><span id="livePrompt">–</span><span class="stat-unit">tok/s</span></div>
+                                <div class="live-metric-label">prompt</div>
+                            </div>
+                            <div class="live-metric">
+                                <div class="live-metric-value"><span id="liveModel" class="live-model">—</span></div>
+                                <div class="live-metric-label">active model</div>
+                            </div>
+                            <div class="live-metric">
+                                <div class="live-metric-value"><span id="liveLast">–</span></div>
+                                <div class="live-metric-label">last sample</div>
+                            </div>
+                            <div class="live-metric live-metric-file">
+                                <div class="live-file" id="liveFile">—</div>
+                                <div class="live-metric-label">active log</div>
+                            </div>
+                        </div>
+
+                        <div class="chart-wrap live-chart-wrap">
+                            <canvas id="liveChart" role="img" aria-label="Live line chart of tokens per second over time"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Stats -->
+                    <div class="stats-grid">
+                        <div class="stat-card stat-card--primary">
+                            <div class="stat-label">Avg generation speed</div>
+                            <div class="stat-value"><span id="overallGen">–</span><span class="stat-unit">tok/s</span></div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Avg prompt speed</div>
+                            <div class="stat-value"><span id="overallPrompt">–</span><span class="stat-unit">tok/s</span></div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Requests completed</div>
+                            <div class="stat-value"><span id="totalTasks">–</span></div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Tokens generated</div>
+                            <div class="stat-value"><span id="totalGenTokens">–</span></div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Models detected</div>
+                            <div class="stat-value"><span id="modelsDetected">–</span></div>
+                        </div>
+                        <div class="stat-card stat-card--warn">
+                            <div class="stat-label">Warnings · Errors</div>
+                            <div class="stat-value"><span id="warnCount">–</span><span class="stat-unit warn-sep">·</span><span id="errCount">–</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Throughput bar charts (prompt vs generation) -->
+                    <div class="chart-grid">
+                        <div class="panel">
+                            <div class="panel-head">
+                                <h2>Generation speed</h2>
+                                <span class="panel-hint">avg tokens per second</span>
+                            </div>
+                            <div class="chart-wrap">
+                                <canvas id="genChart" role="img" aria-label="Bar chart of average generation tokens per second per model"></canvas>
+                            </div>
+                        </div>
+                        <div class="panel">
+                            <div class="panel-head">
+                                <h2>Prompt processing</h2>
+                                <span class="panel-hint">avg tokens per second</span>
+                            </div>
+                            <div class="chart-wrap">
+                                <canvas id="promptChart" role="img" aria-label="Bar chart of average prompt tokens per second per model"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Model breakdown table -->
+                    <div class="panel">
+                        <div class="panel-head">
+                            <h2>Model breakdown</h2>
+                            <span class="panel-hint" id="modelCount">0 models</span>
+                        </div>
+                        <div class="table-scroll">
+                            <table id="modelTable">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Model</th>
+                                        <th scope="col" class="num">Gen tok/s</th>
+                                        <th scope="col" class="num">Prompt tok/s</th>
+                                        <th scope="col" class="num">Tasks</th>
+                                        <th scope="col" class="num">Gen tokens</th>
+                                        <th scope="col" class="num">Draft acc.</th>
+                                        <th scope="col" class="num">Load</th>
+                                        <th scope="col">Vision</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="modelTableBody">
+                                    <tr><td colspan="8">Waiting for data…</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Model sessions -->
+                    <div class="panel">
+                        <div class="panel-head">
+                            <h2>Model sessions</h2>
+                            <span class="panel-hint" id="sessionCount">0 sessions</span>
+                        </div>
+                        <div class="table-scroll">
+                            <table id="sessionTable">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Started</th>
+                                        <th scope="col">Model</th>
+                                        <th scope="col" class="num">Load time</th>
+                                        <th scope="col" class="num">Context</th>
+                                        <th scope="col" class="num">Slots</th>
+                                        <th scope="col" class="num">Threads</th>
+                                        <th scope="col" class="num">Port</th>
+                                        <th scope="col">Vision</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="sessionTableBody">
+                                    <tr><td colspan="8">Waiting for data…</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Health -->
+                    <div class="panel">
+                        <div class="panel-head">
+                            <h2>Health &amp; warnings</h2>
+                            <span class="panel-hint" id="healthHint">—</span>
+                        </div>
+                        <div class="events-scroll" id="eventsList" role="log" aria-label="Recent warnings and errors">
+                            <div class="events-empty">No warnings or errors in this scope</div>
+                        </div>
+                    </div>
+
+                    <!-- Data source -->
+                    <div class="panel">
+                        <div class="panel-head">
+                            <h2>Data source</h2>
+                            <span class="panel-hint" id="scopeHint">all dates</span>
+                        </div>
+                        <div class="source-meta">
+                            <div class="source-row"><span class="source-key">Log root</span><span class="source-val" id="sourceRoot">—</span></div>
+                            <div class="source-row"><span class="source-key">Files analyzed</span><span class="source-val" id="sourceFileCount">—</span></div>
+                            <div class="source-row"><span class="source-key">Date range</span><span class="source-val" id="sourceRange">—</span></div>
+                        </div>
+                        <ul class="source-files" id="sourceFiles"></ul>
+                    </div>
+                </div>
+            </div>
+
+            <footer class="terminal-foot">
+                <span>LLM Performance Monitor</span>
+                <span class="sep">·</span>
+                <span>parsing LM Studio logs in real time</span>
+            </footer>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>

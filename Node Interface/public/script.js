@@ -196,6 +196,7 @@ function updateModelTable(models) {
         nameSpan.textContent = m.name;
         nameSpan.title = m.name;
         nameCell.appendChild(nameSpan);
+        row.appendChild(nameCell);
 
         const cells = [
             fmt(m.genTps),
@@ -249,16 +250,20 @@ function updateSessionTable(sessions) {
     sorted.forEach((s) => {
         const row = document.createElement('tr');
 
+        // Start time column
         const startedCell = document.createElement('td');
         startedCell.className = 'mono';
         startedCell.textContent = s.startTs ? String(s.startTs).slice(5) : '—';
+        row.appendChild(startedCell);
 
+        // Model name column
         const nameCell = document.createElement('td');
         const nameSpan = document.createElement('span');
         nameSpan.className = 'model-name';
         nameSpan.textContent = s.model || '—';
         nameSpan.title = s.model || '';
         nameCell.appendChild(nameSpan);
+        row.appendChild(nameCell);
 
         const cells = [
             s.loadSeconds !== null ? `${s.loadSeconds}s` : '—',

@@ -132,7 +132,7 @@ body {
 
 /* ---------- Layout shell ---------- */
 .shell {
-  max-width: 1180px;
+  max-width: none; /* allow full width */
   margin: 0 auto;
   padding: clamp(16px, 4vw, 48px);
   min-height: 100vh;
