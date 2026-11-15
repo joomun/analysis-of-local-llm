@@ -29,6 +29,7 @@
       <h2>Active Model(s)</h2>
       <ul id="modelsList"></ul>
     </div>
+<div id="dataSummary" class="data-summary" style="margin-top:8px; font-size:0.85rem;color:#888;"><span id="summaryRoot"></span> | <span id="summaryCount"></span></div>
 <div id="lastUpdated" class="last-updated">—</div>
 
     <footer class="terminal-foot">
@@ -66,6 +67,17 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     })
     .catch(e=>{ console.error(e); });
+
+  // Fetch data source summary
+  fetch('/api/performance-data')
+    .then(r=>r.json())
+    .then(d=>{
+      const rootEl = document.getElementById('summaryRoot');
+      if(rootEl) rootEl.textContent = d.logRoot || '—';
+      const countEl = document.getElementById('summaryCount');
+      if(countEl && d.stats){ countEl.textContent = `${d.stats.totalLogFiles ?? 0} file${(d.stats.totalLogFiles === 1) ? '' : 's'}`; }
+    })
+    .catch(()=>{});
 });
 </script>
 
