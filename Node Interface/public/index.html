@@ -18,14 +18,17 @@
       <div class="terminal-title"><span class="path">joomun@portfolio:~$</span> <span class="cmd">llm-monitor</span></div>
     </header>
 
-    <div class="terminal-body" style="text-align:center;padding-top:40px;">
+    <div class="terminal-body">
+      <div class="panel" style="margin-bottom:20px;">
+
       <h1>Welcome to LLM Monitor</h1>
       <p>View the full dashboard for detailed metrics.</p>
       <a href="/dashboard.html" class="btn btn-primary">Open Dashboard</a>
+      </div>
     </div>
 
     <!-- Active Models List -->
-    <div id="activeModels" style="margin-top:20px;">
+    <div id="activeModels" class="panel" style="margin-top:20px;">
       <h2>Active Model(s)</h2>
       <table id="modelTable">
         <thead><tr><th scope="col">Model</th><th scope="col">Loaded At</th></tr></thead>
@@ -57,7 +60,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const lastUpdatedEl = document.getElementById('lastUpdated');
   if(lastUpdatedEl){ lastUpdatedEl.textContent=`updated ${new Date().toLocaleTimeString()}`; }
 
-  fetch('/api/active-models')
   fetch('/api/active-models')
     .then(r=>r.json())
     .then(d=>{
