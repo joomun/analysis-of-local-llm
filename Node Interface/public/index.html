@@ -13,6 +13,7 @@
 <div class="shell">
   <section class="terminal" aria-label="LLM performance monitor">
     <header class="terminal-bar">
+      <div id="connStatus" class="terminal-status" role="status"><span class="status-dot"></span><span id="statusText">connecting</span></div>
       <div class="dots"><span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span></div>
       <div class="terminal-title"><span class="path">joomun@portfolio:~$</span> <span class="cmd">llm-monitor</span></div>
     </header>
@@ -23,6 +24,13 @@
       <a href="/dashboard.html" class="btn btn-primary">Open Dashboard</a>
     </div>
 
+    <!-- Active Models List -->
+    <div id="activeModels" style="margin-top:20px;">
+      <h2>Active Model(s)</h2>
+      <ul id="modelsList"></ul>
+    </div>
+<div id="lastUpdated" class="last-updated">—</div>
+
     <footer class="terminal-foot">
         <span>LLM Performance Monitor</span>
         <span class="sep">·</span>
@@ -30,5 +38,36 @@
     </footer>
   </section>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // Update connection status
+  const connStatusEl = document.getElementById('connStatus');
+  const statusTextEl = document.getElementById('statusText');
+  fetch('/api/health')
+    .then(r=>r.json())
+    .then(d=>{ if(d.ok){ connStatusEl.classList.add('online'); statusTextEl.textContent='online'; } else { connStatusEl.classList.add('offline'); statusTextEl.textContent='offline'; } })
+    .catch(()=>{ connStatusEl.classList.add('offline'); statusTextEl.textContent='offline'; });
+
+  // Update last updated timestamp
+  const lastUpdatedEl = document.getElementById('lastUpdated');
+  if(lastUpdatedEl){ lastUpdatedEl.textContent=`updated ${new Date().toLocaleTimeString()}`; }
+
+  fetch('/api/active-models')
+  fetch('/api/active-models')
+    .then(r=>r.json())
+    .then(d=>{
+      const ul = document.getElementById('modelsList');
+      if (!d.models || !d.models.length) { ul.textContent='None'; return; }
+      d.models.forEach(m=>{
+        const li=document.createElement('li');
+        li.textContent=`${m.name} (loaded ${new Date(m.loadedAt).toLocaleString()})`;
+        ul.appendChild(li);
+      });
+    })
+    .catch(e=>{ console.error(e); });
+});
+</script>
+
 </body>
 </html>
