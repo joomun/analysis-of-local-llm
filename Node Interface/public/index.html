@@ -4,52 +4,43 @@
     <meta charset="UTF-8">
     <title>LLM Monitor Home</title>
     <link rel="stylesheet" href="style.css">
-    <!-- Set theme before first paint -->
+    <!-- Set theme before first paint to avoid a flash -->
     <script>
-      (function(){ try{ var saved=localStorage.getItem('dashboard-theme'); var theme=(saved==='light'||saved==='dark')?saved:((window.matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark'); document.documentElement.setAttribute('data-theme',theme);} catch(e){ document.documentElement.setAttribute('data-theme','dark'); }})();
+        (function(){
+            try{
+                const saved = localStorage.getItem('dashboard-theme');
+                const theme = (saved==='light'||saved==='dark')?saved:
+                    ((window.matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark');
+                document.documentElement.setAttribute('data-theme',theme);
+            }catch(e){
+                document.documentElement.setAttribute('data-theme','dark');
+            }
+        })();
     </script>
 </head>
 <body>
 <div class="shell">
   <section class="terminal" aria-label="LLM performance monitor">
     <header class="terminal-bar">
-      <div id="connStatus" class="terminal-status" role="status"><span class="status-dot"></span><span id="statusText">connecting</span></div>
       <div class="dots"><span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span></div>
       <div class="terminal-title"><span class="path">joomun@portfolio:~$</span> <span class="cmd">llm-monitor</span></div>
+      <div class="terminal-status" id="connStatus" role="status"><span class="status-dot"></span><span id="statusText">connecting</span></div>
     </header>
 
     <div class="terminal-body">
+      <!-- Welcome panel -->
       <div class="panel" style="margin-bottom:20px;">
+        <h1>Welcome to LLM Monitor</h1>
+        <p>View the full dashboard for detailed metrics.</p>
+        <a href="/dashboard.html" class="btn btn-primary">Open Dashboard</a>
+      </div>
 
-      <h1>Welcome to LLM Monitor</h1>
-      <p>View the full dashboard for detailed metrics.</p>
-      <a href="/dashboard.html" class="btn btn-primary">Open Dashboard</a>
+      <!-- Hero section -->
+      <div class="hero">
+        <h2>Local LLM Performance Monitoring</h2>
+        <p>A lightweight interface to view real‑time token throughput from your LM Studio logs.</p>
       </div>
     </div>
-
-    <div class="panel" style="margin-bottom:20px;">
-      <h3>How to read this dashboard</h3>
-      <ul>
-        <li><strong>Live throughput panel:</strong> Shows real‑time token generation and prompt rates.</li>
-        <li><strong>Stats grid:</strong> Avg generation/prompt speed, total tasks, tokens generated, model count, warnings/errors.</li>
-        <li><strong>Bar charts:</strong> Token per second for each model (generation & prompt).</li>
-        <li><strong>Model breakdown table:</strong> Per‑model metrics: tok/s, tasks, tokens, draft acceptance, load time, vision flag.</li>
-        <li><strong>Sessions table:</strong> When each model session started, load time, context size, slots, threads, port.</li>
-        <li><strong>Health & warnings panel:</strong> Recent errors and warnings from log parsing.</li>
-        <li><strong>Data source section:</strong> Log root path, number of files, date range covered.</li>
-      </ul>
-    </div>
-
-    <!-- Active Models List -->
-    <div id="activeModels" class="panel" style="margin-top:20px;">
-      <h2>Active Model(s)</h2>
-      <table id="modelTable">
-        <thead><tr><th scope="col">Model</th><th scope="col">Loaded At</th></tr></thead>
-        <tbody id="modelsList"></tbody>
-      </table>
-    </div>
-<div id="dataSummary" class="data-summary" style="margin-top:8px; font-size:0.85rem;color:#888;"><span id="summaryRoot"></span> | <span id="summaryCount"></span></div>
-<div id="lastUpdated" class="last-updated">—</div>
 
     <footer class="terminal-foot">
         <span>LLM Performance Monitor</span>
@@ -61,48 +52,14 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-  // Update connection status
   const connStatusEl = document.getElementById('connStatus');
   const statusTextEl = document.getElementById('statusText');
+
   fetch('/api/health')
-    .then(r=>r.json())
-    .then(d=>{ if(d.ok){ connStatusEl.classList.add('online'); statusTextEl.textContent='online'; } else { connStatusEl.classList.add('offline'); statusTextEl.textContent='offline'; } })
-    .catch(()=>{ connStatusEl.classList.add('offline'); statusTextEl.textContent='offline'; });
-
-  // Update last updated timestamp
-  const lastUpdatedEl = document.getElementById('lastUpdated');
-  if(lastUpdatedEl){ lastUpdatedEl.textContent=`updated ${new Date().toLocaleTimeString()}`; }
-
-  fetch('/api/active-models')
-    .then(r=>r.json())
-    .then(d=>{
-      const tbody = document.getElementById('modelsList');
-      if (!d.models || !d.models.length) { tbody.innerHTML='<tr><td colspan="2">None</td></tr>'; return; }
-      d.models.forEach(m=>{
-        const tr=document.createElement('tr');
-        const tdName=document.createElement('td');
-        tdName.className='model-name';
-        tdName.textContent=m.name;
-        const tdTime=document.createElement('td');
-        tdTime.textContent=new Date(m.loadedAt).toLocaleString();
-        tr.appendChild(tdName); tr.appendChild(tdTime);
-        tbody.appendChild(tr);
-      });
-    })
-    .catch(e=>{ console.error(e); });
-
-  // Fetch data source summary
-  fetch('/api/performance-data')
-    .then(r=>r.json())
-    .then(d=>{
-      const rootEl = document.getElementById('summaryRoot');
-      if(rootEl) rootEl.textContent = d.logRoot || '—';
-      const countEl = document.getElementById('summaryCount');
-      if(countEl && d.stats){ countEl.textContent = `${d.stats.totalLogFiles ?? 0} file${(d.stats.totalLogFiles === 1) ? '' : 's'}`; }
-    })
-    .catch(()=>{});
+    .then(r => r.json())
+    .then(d => { if (d.ok) { connStatusEl.classList.add('online'); statusTextEl.textContent='online'; } else { connStatusEl.classList.add('offline'); statusTextEl.textContent='offline'; } })
+    .catch(() => { connStatusEl.classList.add('offline'); statusTextEl.textContent='offline'; });
 });
 </script>
-
 </body>
 </html>

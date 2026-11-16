@@ -13,8 +13,13 @@ const autoRefreshToggle = document.getElementById('autoRefreshToggle');
 const autoRefreshLabel  = document.getElementById('autoRefreshLabel');
 const themeToggle       = document.getElementById('themeToggle');
 const themeLabel        = document.getElementById('themeLabel');
-const iconMoon          = themeToggle.querySelector('.icon-moon');
-const iconSun           = themeToggle.querySelector('.icon-sun');
+// Elements for theme icons – may be missing on index page
+let iconMoon = null;
+let iconSun  = null;
+if (themeToggle) {
+    iconMoon = themeToggle.querySelector('.icon-moon');
+    iconSun  = themeToggle.querySelector('.icon-sun');
+}
 const lastUpdatedEl     = document.getElementById('lastUpdated');
 const loadingEl         = document.getElementById('loading');
 const errorEl           = document.getElementById('error');
@@ -693,9 +698,9 @@ function toggleAutoRefresh() {
 function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
     const isDark = theme !== 'light';
-    iconMoon.style.display = isDark ? '' : 'none';
-    iconSun.style.display  = isDark ? 'none' : '';
-    themeLabel.textContent = isDark ? 'Light' : 'Dark';
+    if (iconMoon) iconMoon.style.display = isDark ? '' : 'none';
+    if (iconSun)  iconSun.style.display  = isDark ? 'none' : '';
+    if (themeLabel) themeLabel.textContent = isDark ? 'Light' : 'Dark';
 
     // Re-render charts so they pick up the new palette.
     rerenderModelCharts();
@@ -711,9 +716,9 @@ function toggleTheme() {
 
 // --- Init -----------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', function () {
-    refreshBtn.addEventListener('click', () => fetchData({ loading: true }));
-    autoRefreshToggle.addEventListener('click', toggleAutoRefresh);
-    themeToggle.addEventListener('click', toggleTheme);
+    if (refreshBtn) refreshBtn.addEventListener('click', () => fetchData({ loading: true }));
+    if (autoRefreshToggle) autoRefreshToggle.addEventListener('click', toggleAutoRefresh);
+    if (themeToggle) themeToggle.addEventListener('click', toggleTheme);
     if (dateFilterEl) dateFilterEl.addEventListener('change', () => fetchData({ loading: true }));
     if (liveToggleBtn) liveToggleBtn.addEventListener('click', toggleLive);
 

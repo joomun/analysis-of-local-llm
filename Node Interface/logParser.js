@@ -77,19 +77,23 @@ function listLogFiles({ date = null } = {}) {
     if (!fs.existsSync(root)) return [];
 
     const files = [];
-    for (const month of fs.readdirSync(root)) {
-        const monthPath = path.join(root, month);
-        let st;
-        try { st = fs.statSync(monthPath); } catch { continue; }
-        if (!st.isDirectory()) continue;
-
-        for (const name of fs.readdirSync(monthPath)) {
-            if (!/\.log$/i.test(name)) continue;
-            const fileDate = (name.match(FILE_DATE_RE) || [])[1] || null;
-            if (date && fileDate !== date) continue;
-            files.push({ path: path.join(monthPath, name), name, date: fileDate });
+    // Recursive walk to collect .log files regardless of directory depth
+    function walk(dir) {
+        for (const name of fs.readdirSync(dir)) {
+            const fullPath = path.join(dir, name);
+            let st;
+            try { st = fs.statSync(fullPath); } catch { continue; }
+            if (st.isDirectory()) {
+                walk(fullPath);
+            } else if (/\.log$/i.test(name)) {
+                const fileDate = (name.match(FILE_DATE_RE) || [])[1] || null;
+                if (!date || fileDate === date) {
+                    files.push({ path: fullPath, name, date: fileDate });
+                }
+            }
         }
     }
+    walk(root);
     files.sort((a, b) => a.path.localeCompare(b.path));
     return files;
 }
@@ -591,4 +595,5 @@ module.exports = {
     readNewLines,
     parseLiveLines,
     readTailSamples,
+    clearCache: () => { fileCache.clear(); },
 };

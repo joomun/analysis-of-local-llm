@@ -1,0 +1,256 @@
+{
+  "communities": {
+    "0": [
+      "node_interface_public_script",
+      "node_interface_public_script_autorefreshlabel",
+      "node_interface_public_script_autorefreshtoggle",
+      "node_interface_public_script_connstatus",
+      "node_interface_public_script_datefilterel",
+      "node_interface_public_script_errorel",
+      "node_interface_public_script_errormessageel",
+      "node_interface_public_script_iconmoon",
+      "node_interface_public_script_iconsun",
+      "node_interface_public_script_lastmodels",
+      "node_interface_public_script_lastupdatedel",
+      "node_interface_public_script_livedata",
+      "node_interface_public_script_livelabels",
+      "node_interface_public_script_livetogglebtn",
+      "node_interface_public_script_livetogglelabel",
+      "node_interface_public_script_loaddates",
+      "node_interface_public_script_loadingel",
+      "node_interface_public_script_refreshbtn",
+      "node_interface_public_script_statustext",
+      "node_interface_public_script_themelabel",
+      "node_interface_public_script_themetoggle"
+    ],
+    "1": [
+      "node_interface_package",
+      "node_interface_package_author",
+      "node_interface_package_dependencies",
+      "node_interface_package_dependencies_express",
+      "node_interface_package_description",
+      "node_interface_package_devdependencies",
+      "node_interface_package_devdependencies_nodemon",
+      "node_interface_package_keywords",
+      "node_interface_package_license",
+      "node_interface_package_main",
+      "node_interface_package_name",
+      "node_interface_package_scripts",
+      "node_interface_package_scripts_dev",
+      "node_interface_package_scripts_start",
+      "node_interface_package_version",
+      "ref_express",
+      "ref_nodemon"
+    ],
+    "2": [
+      "node_interface_logparser",
+      "node_interface_logparser_aggregate",
+      "node_interface_logparser_filecache",
+      "node_interface_logparser_fs",
+      "node_interface_logparser_log_root_env",
+      "node_interface_logparser_mean",
+      "node_interface_logparser_path",
+      "node_interface_logparser_rationale_22",
+      "node_interface_logparser_round",
+      "node_interface_logparser_sample_root"
+    ],
+    "3": [
+      "node_interface_logparser_readnewlines",
+      "node_interface_server",
+      "node_interface_server_app",
+      "node_interface_server_express",
+      "node_interface_server_fs",
+      "node_interface_server_path",
+      "node_interface_server_recentwithin",
+      "ref_fs",
+      "ref_path"
+    ],
+    "4": [
+      "node_interface_public_script_appendlivepoint",
+      "node_interface_public_script_connectlive",
+      "node_interface_public_script_disconnectlive",
+      "node_interface_public_script_seedlive",
+      "node_interface_public_script_setlivebadge",
+      "node_interface_public_script_setlivefile",
+      "node_interface_public_script_setlivereadout",
+      "node_interface_public_script_togglelive",
+      "node_interface_public_script_updatelivechart"
+    ],
+    "5": [
+      "node_interface_public_script_applytheme",
+      "node_interface_public_script_chartcolors",
+      "node_interface_public_script_cssvar",
+      "node_interface_public_script_initlivechart",
+      "node_interface_public_script_rerendermodelcharts",
+      "node_interface_public_script_toggletheme",
+      "node_interface_public_script_updatebarchart"
+    ],
+    "6": [
+      "node_interface_logparser_getdataforfile",
+      "node_interface_logparser_leafname",
+      "node_interface_logparser_parselivelines",
+      "node_interface_logparser_parsetexttodata",
+      "node_interface_logparser_parsets",
+      "node_interface_logparser_readtailsamples"
+    ],
+    "7": [
+      "node_interface_public_script_fetchdata",
+      "node_interface_public_script_hideerror",
+      "node_interface_public_script_setconnectionstate",
+      "node_interface_public_script_showerror",
+      "node_interface_public_script_showloading",
+      "node_interface_public_script_toggleautorefresh"
+    ],
+    "8": [
+      "node_interface_public_script_fmt",
+      "node_interface_public_script_updatedashboard",
+      "node_interface_public_script_updateevents",
+      "node_interface_public_script_updatemodeltable",
+      "node_interface_public_script_updatesessiontable",
+      "node_interface_public_script_updatesourcefiles"
+    ],
+    "9": [
+      "node_interface_logparser_findactivelogfile",
+      "node_interface_logparser_getlogroot",
+      "node_interface_logparser_getperformancedata",
+      "node_interface_logparser_listdates",
+      "node_interface_logparser_listlogfiles"
+    ],
+    "10": [
+      "generatereport"
+    ]
+  },
+  "cohesion": {
+    "0": 0.09523809523809523,
+    "1": 0.1323529411764706,
+    "2": 0.2222222222222222,
+    "3": 0.2222222222222222,
+    "4": 0.3055555555555556,
+    "5": 0.38095238095238093,
+    "6": 0.3333333333333333,
+    "7": 0.3333333333333333,
+    "8": 0.3333333333333333,
+    "9": 0.6,
+    "10": 1.0
+  },
+  "gods": [
+    {
+      "id": "node_interface_public_script_connectlive",
+      "label": "connectLive()",
+      "degree": 7
+    },
+    {
+      "id": "node_interface_public_script_fetchdata",
+      "label": "fetchData()",
+      "degree": 7
+    },
+    {
+      "id": "node_interface_public_script_updatedashboard",
+      "label": "updateDashboard()",
+      "degree": 7
+    },
+    {
+      "id": "node_interface_logparser_getperformancedata",
+      "label": "getPerformanceData()",
+      "degree": 7
+    },
+    {
+      "id": "node_interface_logparser_parsetexttodata",
+      "label": "parseTextToData()",
+      "degree": 5
+    },
+    {
+      "id": "node_interface_logparser_listlogfiles",
+      "label": "listLogFiles()",
+      "degree": 5
+    },
+    {
+      "id": "node_interface_public_script_seedlive",
+      "label": "seedLive()",
+      "degree": 4
+    },
+    {
+      "id": "node_interface_public_script_togglelive",
+      "label": "toggleLive()",
+      "degree": 4
+    },
+    {
+      "id": "node_interface_public_script_applytheme",
+      "label": "applyTheme()",
+      "degree": 4
+    },
+    {
+      "id": "node_interface_public_script_chartcolors",
+      "label": "chartColors()",
+      "degree": 4
+    }
+  ],
+  "surprises": [
+    {
+      "source": "getPerformanceData()",
+      "target": "aggregate()",
+      "source_files": [
+        "Node Interface/logParser.js",
+        "Node Interface/logParser.js"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "note": "Bridges community 2 → community 9"
+    },
+    {
+      "source": "updateDashboard()",
+      "target": "updateBarChart()",
+      "source_files": [
+        "Node Interface/public/script.js",
+        "Node Interface/public/script.js"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "note": "Bridges community 5 → community 8"
+    },
+    {
+      "source": "getPerformanceData()",
+      "target": "getDataForFile()",
+      "source_files": [
+        "Node Interface/logParser.js",
+        "Node Interface/logParser.js"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "note": "Bridges community 6 → community 9"
+    },
+    {
+      "source": "fetchData()",
+      "target": "updateDashboard()",
+      "source_files": [
+        "Node Interface/public/script.js",
+        "Node Interface/public/script.js"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "note": "Bridges community 7 → community 8"
+    }
+  ],
+  "questions": [
+    {
+      "type": "bridge_node",
+      "question": "Why does `express` connect `package.json` to `server.js`?",
+      "why": "High betweenness centrality (0.107) - this node is a cross-community bridge."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `script.js` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.09523809523809523 - nodes in this community are weakly interconnected."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `getPerformanceData()` connect `getPerformanceData` to `logParser.js`, `server.js`, `parseTextToData`?",
+      "why": "High betweenness centrality (0.007) - this node is a cross-community bridge."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `package.json` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.1323529411764706 - nodes in this community are weakly interconnected."
+    }
+  ]
+}
