@@ -143,4 +143,4 @@ document.addEventListener('DOMContentLoaded',()=>{
     fetchData({loading:true});
 });
 
-window.addEventListener('resize',()=>{if(historicalGenChart) historicalGenChart.resize(); if(historicalPromptChart) historicalPromptChart.resize(); });
+window.addEventListener('resize',()=>{if(historicalGenChart) historicalGenChart.resize(); if(historicalPromptChart) historicalPromptChart.resize(); }); // DEBUG force rebuild
